@@ -1,73 +1,89 @@
-# React + TypeScript + Vite
+# StockMate Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+주식 데이터 조회 및 분석을 위한 프론트엔드 프로젝트입니다.
+**React 기반 웹 애플리케이션**으로 구현되었습니다.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 🛠 Tech Stack
 
-## React Compiler
+* **Framework**: React
+* **Build Tool**: Vite
+* **Language**: TypeScript / JavaScript
+* **Routing**: React Router DOM
+* **State Management**: Recoil
+* **HTTP Client**: Axios
+* **Styling**: Tailwind CSS
+* **Mock API Server (Optional)**: json-server
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the ESLint configuration
+## 📦 Installation
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+프로젝트를 실행하기 위해 아래 단계를 따라주세요.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### 1. Repository Clone
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+git clone https://github.com/your-id/stockmate-frontend.git
+cd stockmate-frontend
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### 2. Dependencies Install
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
 ```
+
+또는 직접 라이브러리를 설치할 경우
+
+```bash
+npm install react-router-dom axios recoil
+npm install -D tailwindcss postcss autoprefixer json-server
+```
+
+### 3. Development Server 실행
+
+```bash
+npm run dev
+```
+
+브라우저에서 접속
+
+```
+http://localhost:5173
+```
+
+---
+
+## 📁 Project Structure
+
+```
+src
+ ├─ api          # API 요청 관련 코드
+ ├─ components   # 재사용 가능한 컴포넌트
+ ├─ pages        # 페이지 단위 컴포넌트
+ ├─ store        # Recoil 상태 관리
+ ├─ assets       # 이미지 / 정적 파일
+ ├─ App.tsx
+ └─ main.tsx
+```
+
+---
+
+## 🧪 Mock API Server (Optional)
+
+테스트용 API 서버 실행
+
+```bash
+npx json-server --watch db.json --port 3001
+```
+
+---
+
+## 🚀 Features (예정)
+
+* 주식 종목 검색
+* 실시간 가격 조회
+* 차트 기반 데이터 시각화
+* 관심 종목 관리
