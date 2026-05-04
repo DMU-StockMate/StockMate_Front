@@ -1,0 +1,22 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "type": "command",
+        "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/auto-commit.sh",
+        "timeout": 30
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash(.*git\\s+push.*)",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Claude가 git push를 시도합니다. 사용자의 명시적 승인 없이는 절대 실행하지 마세요. 사용자에게 'push 해도 되나요?'라고 물어보고 'yes/네/응' 같은 명확한 승인이 있을 때만 통과시키세요."
+          }
+        ]
+      }
+    ]
+  }
+}
