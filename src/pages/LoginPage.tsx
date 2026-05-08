@@ -1,46 +1,17 @@
-import { useState, FormEvent } from 'react'
-import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
-import Button from '../components/ui/Button'
-import Input from '../components/ui/Input'
+import { Link } from 'react-router-dom'
+import Button from '../components/common/Button'
+import Input from '../components/common/Input'
+import { useLoginForm } from '../hooks/useLoginForm'
 
 export default function LoginPage() {
-  const navigate = useNavigate()
-  const location = useLocation()
-  const { login } = useAuth()
-
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({})
-  const [loading, setLoading] = useState(false)
-
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname ?? '/dashboard'
-
-  const validate = () => {
-    const e: typeof errors = {}
-    if (!email) e.email = '이메일을 입력해주세요'
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = '올바른 이메일 형식이 아닙니다'
-    if (!password) e.password = '비밀번호를 입력해주세요'
-    else if (password.length < 8) e.password = '비밀번호는 8자 이상이어야 합니다'
-    return e
-  }
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault()
-    const errs = validate()
-    if (Object.keys(errs).length > 0) { setErrors(errs); return }
-    setErrors({})
-    setLoading(true)
-    try {
-      // TODO: 실제 로그인 API 호출로 교체
-      await new Promise((r) => setTimeout(r, 600))
-      login({ name: '세린', email, level: '초급 Lv.2' })
-      navigate(from, { replace: true })
-    } finally {
-      setLoading(false)
-    }
-  }
+  const {
+    email, setEmail,
+    password, setPassword,
+    showPassword, setShowPassword,
+    errors,
+    loading,
+    handle_submit,
+  } = useLoginForm()
 
   return (
     <div className="auth-page">
@@ -63,7 +34,7 @@ export default function LoginPage() {
           <p className="muted">투자 학습을 이어가 보세요</p>
         </div>
 
-        <form className="auth-form" onSubmit={handleSubmit} noValidate>
+        <form className="auth-form" onSubmit={handle_submit} noValidate>
           <Input
             label="이메일"
             type="email"

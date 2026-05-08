@@ -31,3 +31,6 @@ Thumbs.db
 
 # TypeScript
 *.tsbuildinfo
+
+# AI
+CALUDE.md

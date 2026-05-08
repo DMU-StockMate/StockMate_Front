@@ -1,10 +1,10 @@
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
+import { useAuth } from '../hooks/useAuth'
 import AppLayout from '../components/layout/AppLayout'
-import Card from '../components/ui/Card'
-import Button from '../components/ui/Button'
-import Pill from '../components/ui/Pill'
-import Progress from '../components/ui/Progress'
+import Card from '../components/common/Card'
+import Button from '../components/common/Button'
+import Pill from '../components/common/Pill'
+import Progress from '../components/common/Progress'
 
 const MENU = [
   { icon: 'bi-person-gear', label: '개인정보 변경' },
@@ -18,7 +18,7 @@ export default function MyPage() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
 
-  const handleLogout = () => {
+  const handle_logout = () => {
     logout()
     navigate('/login')
   }
@@ -84,7 +84,7 @@ export default function MyPage() {
             <i className="bi bi-chevron-right" style={{ color: 'var(--t3)' }} />
           </div>
         ))}
-        <div className="menu-row" style={{ color: 'var(--up)' }} onClick={handleLogout}>
+        <div className="menu-row" style={{ color: 'var(--up)' }} onClick={handle_logout}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <i className="bi bi-box-arrow-right" style={{ fontSize: 16 }} />
             로그아웃

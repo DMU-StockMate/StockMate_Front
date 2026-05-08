@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useAuth } from '../../context/AuthContext'
+import { useAuth } from '../../hooks/useAuth'
 
 interface TopbarProps {
   placeholder?: string
@@ -18,7 +18,7 @@ export default function Topbar({
   const [query, setQuery] = useState('')
   const { isLoggedIn, user } = useAuth()
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handle_key_down = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && onSearch) onSearch(query)
   }
 
@@ -29,7 +29,7 @@ export default function Topbar({
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={handleKeyDown}
+          onKeyDown={handle_key_down}
           placeholder={placeholder}
           aria-label="검색"
         />

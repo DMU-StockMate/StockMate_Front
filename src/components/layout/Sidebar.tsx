@@ -1,6 +1,6 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { useState } from 'react'
-import { useAuth } from '../../context/AuthContext'
+import { useState, useEffect } from 'react'
+import { useAuth } from '../../hooks/useAuth'
 
 interface NavItemDef {
   path: string
@@ -25,7 +25,18 @@ const NAV_ITEMS: NavItemDef[] = [
     ],
   },
   { path: '/ai', label: 'AI 분석', icon: 'bi-cpu' },
-  { path: '/trade', label: '모의투자', icon: 'bi-graph-up-arrow' },
+  {
+    path: '/trade',
+    label: '모의투자',
+    icon: 'bi-graph-up-arrow',
+    subItems: [
+      { path: '/trade', label: '대시보드' },
+      { path: '/trade/stocks', label: '전체 종목' },
+      { path: '/trade/history', label: '투자 내역' },
+      { path: '/trade/ranking', label: '랭킹전' },
+      { path: '/trade/watchlist', label: '관심 종목' },
+    ],
+  },
   { path: '/mypage', label: '마이페이지', icon: 'bi-person-circle' },
 ]
 
@@ -38,9 +49,22 @@ export default function Sidebar() {
   const location = useLocation()
   const navigate = useNavigate()
   const { isLoggedIn, user, logout } = useAuth()
-  const [openSubs, setOpenSubs] = useState<string[]>(['/learn'])
 
-  const toggleSub = (path: string) => {
+  const getInitialOpen = () =>
+    NAV_ITEMS
+      .filter((item) => item.subItems && location.pathname.startsWith(item.path))
+      .map((item) => item.path)
+
+  const [openSubs, setOpenSubs] = useState<string[]>(getInitialOpen)
+
+  useEffect(() => {
+    const autoOpen = NAV_ITEMS
+      .filter((item) => item.subItems && location.pathname.startsWith(item.path))
+      .map((item) => item.path)
+    setOpenSubs((prev) => Array.from(new Set([...prev, ...autoOpen])))
+  }, [location.pathname])
+
+  const handle_toggle_sub = (path: string) => {
     setOpenSubs((prev) =>
       prev.includes(path) ? prev.filter((p) => p !== path) : [...prev, path]
     )
@@ -51,7 +75,7 @@ export default function Sidebar() {
       ? location.pathname === '/dashboard'
       : location.pathname.startsWith(path)
 
-  const handleLogout = () => {
+  const handle_logout = () => {
     logout()
     navigate('/login')
   }
@@ -73,7 +97,7 @@ export default function Sidebar() {
               {item.subItems ? (
                 <div
                   className={`nav-item ${active ? 'active' : ''}`}
-                  onClick={() => toggleSub(item.path)}
+                  onClick={() => handle_toggle_sub(item.path)}
                   style={{ userSelect: 'none' }}
                 >
                   <i className={`bi ${item.icon} nav-icon`} />
@@ -100,7 +124,7 @@ export default function Sidebar() {
                     <NavLink
                       key={sub.path}
                       to={sub.path}
-                      end
+                      end={sub.path === '/learn' || sub.path === '/trade'}
                       className={({ isActive }) => `sub-nav-item ${isActive ? 'active' : ''}`}
                     >
                       {sub.label}
@@ -136,17 +160,11 @@ export default function Sidebar() {
               <div className="user-level">{user?.level ?? '-'}</div>
             </div>
             <button
-              onClick={handleLogout}
+              onClick={handle_logout}
               style={{
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                color: 'var(--t3)',
-                fontSize: 18,
-                padding: 4,
-                borderRadius: 6,
-                display: 'flex',
-                alignItems: 'center',
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: 'var(--t3)', fontSize: 18, padding: 4,
+                borderRadius: 6, display: 'flex', alignItems: 'center',
               }}
               title="로그아웃"
             >
@@ -157,14 +175,9 @@ export default function Sidebar() {
           <NavLink
             to="/login"
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              fontSize: 13,
-              fontWeight: 600,
-              color: 'var(--primary)',
-              textDecoration: 'none',
-              flex: 1,
+              display: 'flex', alignItems: 'center', gap: 8,
+              fontSize: 13, fontWeight: 600, color: 'var(--primary)',
+              textDecoration: 'none', flex: 1,
             }}
           >
             <i className="bi bi-box-arrow-in-right" style={{ fontSize: 16 }} />
