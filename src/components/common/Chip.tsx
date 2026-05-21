@@ -1,4 +1,4 @@
-import { HTMLAttributes, ReactNode } from 'react'
+import type { HTMLAttributes, CSSProperties, ReactNode } from 'react'
 
 interface ChipProps extends HTMLAttributes<HTMLSpanElement> {
   active?: boolean
@@ -13,6 +13,6 @@ export default function Chip({ active = false, className = '', children, ...prop
   )
 }
 
-export function ChipRow({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <div className={['chip-row', className].filter(Boolean).join(' ')}>{children}</div>
+export function ChipRow({ children, className = '', style }: { children: ReactNode; className?: string; style?: CSSProperties }) {
+  return <div className={['chip-row', className].filter(Boolean).join(' ')} style={style}>{children}</div>
 }

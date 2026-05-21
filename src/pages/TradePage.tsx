@@ -1,67 +1,102 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AppLayout from '../components/layout/AppLayout'
 import Card from '../components/common/Card'
 import Button from '../components/common/Button'
-import Pill from '../components/common/Pill'
+import {
+  api_get_stock_rankings_rise,
+  api_get_stock_rankings_volume,
+  type StockRankingItem,
+} from '../api/stocks'
 
-interface Holding {
-  logo: string
+interface MarketStock {
   name: string
-  code: string
-  qty: number
-  avgPrice: string
-  curPrice: string
-  pnl: string
-  pnlPct: string
+  ticker: string
+  market?: string
+  price: number
+  changeRate: number
+  changePrice?: number
+  volume?: number
   up: boolean
 }
-
-interface RecentTrade {
-  type: 'up' | 'down'
-  label: string
-  name: string
-  qty: number
-  date: string
-  execPrice: string
-  returnPct: string
-  up: boolean
-}
-
-const HOLDINGS: Holding[] = [
-  { logo: '삼', name: '삼성전자', code: '005930', qty: 3, avgPrice: '70,200원', curPrice: '72,400원', pnl: '+6,600원', pnlPct: '+3.13%', up: true },
-  { logo: '카', name: '카카오', code: '035720', qty: 2, avgPrice: '58,000원', curPrice: '55,000원', pnl: '-6,000원', pnlPct: '-5.17%', up: false },
-  { logo: 'SK', name: 'SK하이닉스', code: '000660', qty: 1, avgPrice: '185,500원', curPrice: '192,300원', pnl: '+6,800원', pnlPct: '+3.66%', up: true },
-]
-
-const RECENT_TRADES: RecentTrade[] = [
-  { type: 'up', label: '매수', name: '삼성전자', qty: 1, date: '04.15', execPrice: '70,100원', returnPct: '+3.2%', up: true },
-  { type: 'down', label: '매도', name: 'SK하이닉스', qty: 1, date: '04.05', execPrice: '178,200원', returnPct: '+8.0%', up: true },
-  { type: 'up', label: '매수', name: '카카오', qty: 2, date: '04.10', execPrice: '58,000원', returnPct: '-5.2%', up: false },
-  { type: 'up', label: '매수', name: 'SK하이닉스', qty: 1, date: '03.28', execPrice: '185,500원', returnPct: '+3.7%', up: true },
-]
 
 interface ModalState {
   open: boolean
   mode: 'buy' | 'sell'
-  stock?: Holding
+  stock?: MarketStock
 }
+
+const get_items = (data: StockRankingItem[] | { items?: StockRankingItem[]; data?: StockRankingItem[] }) => {
+  if (Array.isArray(data)) return data
+  return data.items ?? data.data ?? []
+}
+
+const to_number = (value: unknown) => {
+  if (typeof value === 'number') return value
+  if (typeof value === 'string') return Number(value.replaceAll(',', '')) || 0
+  return 0
+}
+
+const normalize_stock = (stock: StockRankingItem): MarketStock => {
+  const ticker = stock.ticker ?? stock.code ?? stock.symbol ?? ''
+  const name = stock.companyName ?? stock.name ?? ticker
+  const price = to_number(stock.currentPrice ?? stock.closePrice ?? stock.price)
+  const changeRate = to_number(stock.changeRate ?? stock.rate)
+  return {
+    name,
+    ticker,
+    market: stock.market,
+    price,
+    changeRate,
+    changePrice: to_number(stock.changePrice ?? stock.change),
+    volume: to_number(stock.volume),
+    up: changeRate >= 0,
+  }
+}
+
+const format_price = (price: number) =>
+  price > 0 ? `${price.toLocaleString()}원` : '-'
+
+const format_rate = (rate: number) =>
+  `${rate > 0 ? '+' : ''}${rate.toFixed(2)}%`
 
 export default function TradePage() {
   const navigate = useNavigate()
   const [modal, setModal] = useState<ModalState>({ open: false, mode: 'buy' })
   const [qty, setQty] = useState(2)
+  const [riseStocks, setRiseStocks] = useState<MarketStock[]>([])
+  const [volumeStocks, setVolumeStocks] = useState<MarketStock[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const handle_open_modal = (mode: 'buy' | 'sell', stock?: Holding) => {
-    setModal({ open: true, mode, stock })
+  useEffect(() => {
+    Promise.all([
+      api_get_stock_rankings_rise(),
+      api_get_stock_rankings_volume(),
+    ])
+      .then(([riseRes, volumeRes]) => {
+        setRiseStocks(get_items(riseRes.data).map(normalize_stock))
+        setVolumeStocks(get_items(volumeRes.data).map(normalize_stock))
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  const handle_open_modal = (mode: 'buy' | 'sell', stock?: MarketStock) => {
+    const selected = stock ?? riseStocks[0] ?? volumeStocks[0]
+    if (!selected) {
+      navigate('/trade/stocks')
+      return
+    }
+    setModal({ open: true, mode, stock: selected })
     setQty(1)
   }
 
   const handle_close_modal = () => setModal({ open: false, mode: 'buy' })
 
-  const unitPrice = 72400
+  const unitPrice = modal.stock?.price ?? 0
+  const virtualCash = 5212400
   const totalPrice = (unitPrice * qty).toLocaleString()
-  const remaining = (5212400 - unitPrice * qty).toLocaleString()
+  const remaining = Math.max(0, virtualCash - unitPrice * qty).toLocaleString()
 
   return (
     <AppLayout topbarPlaceholder="종목 검색">
@@ -147,77 +182,88 @@ export default function TradePage() {
         <Card>
           <div className="row" style={{ marginBottom: 14 }}>
             <div>
-              <div className="section-title" style={{ marginBottom: 0 }}>보유 종목 {HOLDINGS.length}개</div>
-              <div className="muted" style={{ fontSize: 12 }}>총 평가금액 1,254,000원</div>
+              <div className="section-title" style={{ marginBottom: 0 }}>상승 랭킹</div>
+              <div className="muted" style={{ fontSize: 12 }}>백엔드 랭킹 API 기준 실시간 후보 종목</div>
             </div>
-            <Button size="sm" variant="outline" onClick={() => navigate('/trade/stocks')}>+ 종목 추가</Button>
+            <Button size="sm" variant="outline" onClick={() => navigate('/trade/stocks')}>전체 종목</Button>
           </div>
-          <table className="tbl">
-            <thead>
-              <tr>
-                <th>종목</th><th>보유</th><th>평균가</th><th>현재가</th><th>평가손익</th><th>액션</th>
-              </tr>
-            </thead>
-            <tbody>
-              {HOLDINGS.map((h) => (
-                <tr key={h.code}>
-                  <td>
-                    <div className="stock-cell">
-                      <div className="logo-sm">{h.logo}</div>
-                      <div>
-                        <div className="strong">{h.name}</div>
-                        <div className="muted" style={{ fontSize: 12 }}>{h.code}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td>{h.qty}주</td>
-                  <td>{h.avgPrice}</td>
-                  <td className="strong">{h.curPrice}</td>
-                  <td>
-                    <div className={h.up ? 'price-up' : 'price-down'}>{h.pnl}</div>
-                    <div className="muted" style={{ fontSize: 11 }}>{h.pnlPct}</div>
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <button className="btn btn-sm btn-up" onClick={() => handle_open_modal('buy', h)}>매수</button>
-                      <button className="btn btn-sm btn-outline" onClick={() => handle_open_modal('sell', h)}>매도</button>
-                    </div>
-                  </td>
+          {loading ? (
+            <div style={{ padding: 40, textAlign: 'center', color: 'var(--t2)' }}>랭킹을 불러오는 중...</div>
+          ) : riseStocks.length === 0 ? (
+            <div style={{ padding: 40, textAlign: 'center', color: 'var(--t3)' }}>상승 랭킹 데이터가 없습니다.</div>
+          ) : (
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th>종목</th><th>시장</th><th>현재가</th><th>등락률</th><th>액션</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {riseStocks.slice(0, 5).map((stock) => (
+                  <tr key={stock.ticker}>
+                    <td>
+                      <div className="stock-cell">
+                        <div className="logo-sm">{stock.name.slice(0, 2)}</div>
+                        <div>
+                          <div className="strong">{stock.name}</div>
+                          <div className="muted" style={{ fontSize: 12 }}>{stock.ticker}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="muted">{stock.market ?? '-'}</td>
+                    <td className="strong">{format_price(stock.price)}</td>
+                    <td className={stock.up ? 'price-up' : 'price-down'}>{format_rate(stock.changeRate)}</td>
+                    <td>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button className="btn btn-sm btn-up" onClick={() => handle_open_modal('buy', stock)}>매수</button>
+                        <button className="btn btn-sm btn-outline" onClick={() => handle_open_modal('sell', stock)}>매도</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </Card>
 
         <Card>
           <div className="row" style={{ marginBottom: 14 }}>
-            <div className="section-title" style={{ marginBottom: 0 }}>최근 거래</div>
+            <div className="section-title" style={{ marginBottom: 0 }}>거래량 랭킹</div>
             <span
               className="muted"
               style={{ fontSize: 12, cursor: 'pointer', color: 'var(--primary)', fontWeight: 700 }}
-              onClick={() => navigate('/trade/history')}
+              onClick={() => navigate('/trade/stocks')}
             >
-              전체 내역 →
+              전체 종목 →
             </span>
           </div>
-          {RECENT_TRADES.map((t, i) => (
-            <div key={i} className="activity-row">
+          {loading ? (
+            <div style={{ padding: '26px 0', textAlign: 'center', color: 'var(--t2)' }}>불러오는 중...</div>
+          ) : volumeStocks.length === 0 ? (
+            <div style={{ padding: '26px 0', textAlign: 'center', color: 'var(--t3)' }}>거래량 데이터가 없습니다.</div>
+          ) : volumeStocks.slice(0, 5).map((stock, i) => (
+            <div key={stock.ticker} className="activity-row">
               <div className="left">
-                <Pill variant={t.type}>{t.label}</Pill>
+                <span style={{
+                  width: 24, height: 24, borderRadius: 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  background: 'var(--primary-subtle)', color: 'var(--primary)', fontSize: 12, fontWeight: 800, flexShrink: 0,
+                }}>{i + 1}</span>
                 <div>
-                  <div className="strong" style={{ fontSize: 13 }}>{t.name} {t.qty}주</div>
-                  <div className="muted" style={{ fontSize: 11 }}>{t.date} · {t.execPrice}</div>
+                  <div className="strong" style={{ fontSize: 13 }}>{stock.name}</div>
+                  <div className="muted" style={{ fontSize: 11 }}>
+                    {stock.ticker} · 거래량 {stock.volume ? stock.volume.toLocaleString() : '-'}
+                  </div>
                 </div>
               </div>
-              <div className={t.up ? 'price-up' : 'price-down'} style={{ fontSize: 13 }}>{t.returnPct}</div>
+              <div className={stock.up ? 'price-up' : 'price-down'} style={{ fontSize: 13 }}>{format_rate(stock.changeRate)}</div>
             </div>
           ))}
           <button
             className="btn btn-ghost"
             style={{ width: '100%', marginTop: 14 }}
-            onClick={() => navigate('/trade/history')}
+            onClick={() => navigate('/trade/stocks')}
           >
-            📋 투자 내역 + AI 피드백 보기
+            전체 종목 둘러보기
           </button>
         </Card>
       </div>
@@ -256,15 +302,17 @@ export default function TradePage() {
             >
               <div className="row">
                 <div className="stock-cell">
-                  <div className="logo-sm">삼</div>
+                  <div className="logo-sm">{modal.stock?.name.slice(0, 2)}</div>
                   <div>
-                    <div className="strong">삼성전자</div>
-                    <div className="muted" style={{ fontSize: 12 }}>005930</div>
+                    <div className="strong">{modal.stock?.name}</div>
+                    <div className="muted" style={{ fontSize: 12 }}>{modal.stock?.ticker}</div>
                   </div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <div className="strong" style={{ fontSize: 16 }}>72,400원</div>
-                  <div className="price-up" style={{ fontSize: 12 }}>+1.85%</div>
+                  <div className="strong" style={{ fontSize: 16 }}>{format_price(unitPrice)}</div>
+                  <div className={modal.stock?.up ? 'price-up' : 'price-down'} style={{ fontSize: 12 }}>
+                    {format_rate(modal.stock?.changeRate ?? 0)}
+                  </div>
                 </div>
               </div>
             </div>
@@ -288,7 +336,7 @@ export default function TradePage() {
               </div>
               <div className="row" style={{ fontSize: 13, marginBottom: 8 }}>
                 <span className="muted">보유 가용 자금</span>
-                <span>5,212,400원</span>
+                <span>{virtualCash.toLocaleString()}원</span>
               </div>
               <div className="row" style={{ fontSize: 13 }}>
                 <span className="muted">{modal.mode === 'buy' ? '매수 후 잔여' : '매도 후 예수금'}</span>

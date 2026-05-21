@@ -1,74 +1,201 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AppLayout from '../components/layout/AppLayout'
 import Card from '../components/common/Card'
 import Button from '../components/common/Button'
 import Chip, { ChipRow } from '../components/common/Chip'
+import { api_get_stocks, api_get_stock_latest_price, type Stock, type StockPriceDaily } from '../api/stocks'
 
-interface Stock {
-  logo: string
-  name: string
-  code: string
-  market: string
-  sector: string
-  price: string
-  change: string
-  changePct: string
-  volume: string
-  cap: string
-  up: boolean
+type MarketFilter = '전체' | 'KOSPI' | 'KOSDAQ' | 'KONEX'
+
+type ApiObject = Record<string, unknown>
+type DisplayStock = Stock & {
+  ticker: string
+  companyName: string
+  market?: string
+  sector?: string
+  currency: string
+  status: 'ACTIVE' | 'DELISTED' | 'SUSPENDED'
 }
 
-const ALL_STOCKS: Stock[] = [
-  { logo: '삼', name: '삼성전자', code: '005930', market: 'KOSPI', sector: '반도체', price: '72,400원', change: '+1,300', changePct: '+1.85%', volume: '12.4M', cap: '432조', up: true },
-  { logo: 'SK', name: 'SK하이닉스', code: '000660', market: 'KOSPI', sector: '반도체', price: '192,300원', change: '+3,800', changePct: '+2.01%', volume: '5.8M', cap: '140조', up: true },
-  { logo: 'LG', name: 'LG에너지솔루션', code: '373220', market: 'KOSPI', sector: '2차전지', price: '412,500원', change: '-3,500', changePct: '-0.84%', volume: '2.1M', cap: '96조', up: false },
-  { logo: '현', name: '현대차', code: '005380', market: 'KOSPI', sector: '자동차', price: '258,000원', change: '+4,500', changePct: '+1.78%', volume: '3.2M', cap: '54조', up: true },
-  { logo: '카', name: '카카오', code: '035720', market: 'KOSPI', sector: '인터넷', price: '55,000원', change: '-2,800', changePct: '-4.84%', volume: '8.1M', cap: '23조', up: false },
-  { logo: '네', name: 'NAVER', code: '035420', market: 'KOSPI', sector: '인터넷', price: '192,500원', change: '+1,500', changePct: '+0.79%', volume: '1.5M', cap: '31조', up: true },
-  { logo: '셀', name: '셀트리온', code: '068270', market: 'KOSPI', sector: '바이오', price: '182,000원', change: '+2,500', changePct: '+1.39%', volume: '2.8M', cap: '27조', up: true },
-  { logo: 'KT', name: 'KT&G', code: '033780', market: 'KOSPI', sector: '담배·소비재', price: '94,100원', change: '-400', changePct: '-0.42%', volume: '1.2M', cap: '13조', up: false },
-]
+const as_object = (value: unknown): ApiObject =>
+  value && typeof value === 'object' ? value as ApiObject : {}
 
-const SEARCH_RESULTS = [
-  { logo: '삼', name: '삼성전자', code: '005930', market: 'KOSPI', sector: '반도체', price: '72,400원', changePct: '+1.85%', up: true },
-  { logo: '삼SDI', name: '삼성SDI', code: '006400', market: 'KOSPI', sector: '2차전지', price: '385,000원', changePct: '-1.28%', up: false },
-  { logo: '삼바', name: '삼성바이오로직스', code: '207940', market: 'KOSPI', sector: '바이오', price: '812,000원', changePct: '+0.62%', up: true },
-  { logo: '삼화', name: '삼성화재', code: '000810', market: 'KOSPI', sector: '보험', price: '324,500원', changePct: '+2.04%', up: true },
-  { logo: '삼중', name: '삼성중공업', code: '010140', market: 'KOSPI', sector: '조선', price: '9,420원', changePct: '+3.41%', up: true },
-  { logo: '삼증', name: '삼성증권', code: '016360', market: 'KOSPI', sector: '증권', price: '42,800원', changePct: '-0.46%', up: false },
-]
+const get_array = (data: unknown): unknown[] => {
+  if (Array.isArray(data)) return data
+  const obj = as_object(data)
+  const candidates = [obj.items, obj.data, obj.stocks, obj.content, obj.results, obj.list]
+  return candidates.find(Array.isArray) as unknown[] ?? []
+}
 
-const RELATED = [
-  { sector: '반도체', type: '동일 업종', name: 'SK하이닉스', code: '000660', changePct: '+2.01%', up: true },
-  { sector: '2차전지', type: '동일 업종', name: 'LG에너지솔루션', code: '373220', changePct: '-0.84%', up: false },
-  { sector: '함께 본 종목', type: '', name: '현대차', code: '005380', changePct: '+1.78%', up: true },
-]
+const get_text = (obj: ApiObject, keys: string[], fallback = '') => {
+  for (const key of keys) {
+    const value = obj[key]
+    if (typeof value === 'string' && value.trim()) return value
+    if (typeof value === 'number') return String(value)
+  }
+  return fallback
+}
 
-type FilterType = '전체' | '코스피' | '코스닥' | '인기' | '급등' | '급락' | '거래량 상위' | '내 등급 추천'
+const parse_num = (value: unknown) => {
+  if (typeof value === 'string') {
+    const normalized = value.replaceAll(',', '').replace('%', '').trim()
+    const n = Number(normalized)
+    return Number.isNaN(n) ? undefined : n
+  }
+  const n = Number(value)
+  return Number.isNaN(n) ? undefined : n
+}
+
+const get_num = (obj: ApiObject, keys: string[]) => {
+  for (const key of keys) {
+    const n = parse_num(obj[key])
+    if (n !== undefined) return n
+  }
+  return 0
+}
+
+const normalize_stock = (value: unknown): DisplayStock => {
+  const obj = as_object(value)
+  const sectorObj = as_object(obj.sector)
+  const ticker = get_text(obj, ['ticker', 'stockCode', 'stock_code', 'code', 'symbol', 'shortCode'])
+  const companyName = get_text(obj, ['companyName', 'stockName', 'stock_name', 'name', 'company_name'], ticker)
+  const isActive = obj.isActive !== false && obj.active !== false
+  const status = get_text(obj, ['status'], isActive ? 'ACTIVE' : 'SUSPENDED') as DisplayStock['status']
+  return {
+    ...(obj as Stock),
+    stockId: Number(obj.stockId ?? obj.id ?? 0),
+    ticker,
+    companyName,
+    market: get_text(obj, ['market', 'marketName', 'market_name']) || undefined,
+    sector: get_text(obj, ['sectorName', 'sector_name', 'sector'], get_text(sectorObj, ['name', 'sectorName'])) || undefined,
+    currency: get_text(obj, ['currency'], 'KRW'),
+    status: ['ACTIVE', 'DELISTED', 'SUSPENDED'].includes(status) ? status : 'ACTIVE',
+    isActive,
+  }
+}
+
+const get_stock_list = (data: unknown) =>
+  get_array(data).map(normalize_stock).filter((stock) => stock.ticker)
+
+const unwrap_price = (data: unknown) => {
+  const obj = as_object(data)
+  return as_object(obj.data ?? obj.price ?? obj.latestPrice ?? obj.latest ?? data)
+}
+
+const get_price = (data?: StockPriceDaily) =>
+  data ? get_num(unwrap_price(data), ['currentPrice', 'closePrice', 'price', 'close', 'tradePrice']) : 0
+
+const get_rate = (data?: StockPriceDaily) =>
+  data ? get_num(unwrap_price(data), [
+    'changeRate',
+    'change_rate',
+    'rate',
+    'changePercent',
+    'change_percent',
+    'fluctuationRate',
+    'fluctuation_rate',
+    'signedChangeRate',
+    'signed_change_rate',
+  ]) : undefined
+
+const fmt_price = (v?: number) => (v && v > 0 ? `${v.toLocaleString()}원` : '-')
+const fmt_rate = (v?: number) => {
+  if (v === undefined || v === null) return '-'
+  return `${v > 0 ? '+' : ''}${v.toFixed(2)}%`
+}
+
+const matches_keyword = (stock: DisplayStock, keyword: string) => {
+  const q = keyword.trim().toLowerCase()
+  if (!q) return true
+  return [stock.ticker, stock.companyName, stock.market, stock.sector]
+    .some((value) => value?.toLowerCase().includes(q))
+}
 
 export default function TradeStocksPage() {
   const navigate = useNavigate()
-  const [query, setQuery] = useState('')
-  const [submitted, setSubmitted] = useState(false)
-  const [filter, setFilter] = useState<FilterType>('전체')
+  const [allStocks, setAllStocks] = useState<DisplayStock[]>([])
+  const [prices, setPrices] = useState<Record<string, StockPriceDaily>>({})
+  const [page, setPage] = useState(1)
+  const [loading, setLoading] = useState(true)
+  const [searchInput, setSearchInput] = useState('')
+  const [keyword, setKeyword] = useState('')
+  const [market, setMarket] = useState<MarketFilter>('전체')
+  const LIMIT = 20
 
-  const isSearchMode = submitted && query.trim() !== ''
+  const load = useCallback(() => {
+    setLoading(true)
+    api_get_stocks({
+      keyword: keyword || undefined,
+      market: market !== '전체' ? (market as 'KOSPI' | 'KOSDAQ' | 'KONEX') : undefined,
+      status: 'ACTIVE',
+    })
+      .then(({ data }) => {
+        const list = get_stock_list(data)
+        if (keyword.trim() && list.length === 0) {
+          return api_get_stocks({
+            market: market !== '전체' ? (market as 'KOSPI' | 'KOSDAQ' | 'KONEX') : undefined,
+            status: 'ACTIVE',
+          }).then(({ data }) => {
+            setAllStocks(get_stock_list(data).filter((stock) => matches_keyword(stock, keyword)))
+            setPage(1)
+          })
+        }
+        setAllStocks(list)
+        setPage(1)
+      })
+      .catch(() => {
+        if (!keyword.trim()) {
+          setAllStocks([])
+          return
+        }
+        return api_get_stocks({
+          market: market !== '전체' ? (market as 'KOSPI' | 'KOSDAQ' | 'KONEX') : undefined,
+          status: 'ACTIVE',
+        })
+          .then(({ data }) => setAllStocks(get_stock_list(data).filter((stock) => matches_keyword(stock, keyword))))
+          .catch(() => setAllStocks([]))
+      })
+      .finally(() => setLoading(false))
+  }, [keyword, market])
+
+  useEffect(() => { load() }, [load])
 
   const handle_search = () => {
-    if (query.trim()) setSubmitted(true)
+    setKeyword(searchInput)
   }
 
   const handle_clear = () => {
-    setQuery('')
-    setSubmitted(false)
+    setSearchInput('')
+    setKeyword('')
   }
 
   const handle_key_down = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') handle_search()
   }
 
-  const searchKeyword = query.trim()
+  const isSearchMode = keyword.trim() !== ''
+  const total = allStocks.length
+  const totalPages = Math.ceil(total / LIMIT)
+  const stocks = useMemo(
+    () => allStocks.slice((page - 1) * LIMIT, page * LIMIT),
+    [allStocks, page],
+  )
+
+  useEffect(() => {
+    if (stocks.length === 0) return
+    setPrices({})
+    Promise.allSettled(stocks.map((s) => api_get_stock_latest_price(s.ticker)))
+      .then((results) => {
+        const map: Record<string, StockPriceDaily> = {}
+        results.forEach((r, i) => {
+          if (r.status === 'fulfilled' && r.value.data) {
+            map[stocks[i].ticker] = unwrap_price(r.value.data) as unknown as StockPriceDaily
+          }
+        })
+        setPrices(map)
+      })
+  }, [stocks])
 
   return (
     <AppLayout topbarPlaceholder="종목 검색">
@@ -86,174 +213,137 @@ export default function TradeStocksPage() {
         )}
       </div>
 
-      {!isSearchMode ? (
-        <>
-          <div className="page-title">
-            <div>
-              <h1>전체 종목 둘러보기</h1>
-              <div className="page-sub">2,847개 종목 중에서 검색하고 비교해보세요</div>
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <Button variant="outline">관심 종목만 보기 ★</Button>
-              <Button>+ 매수 주문</Button>
-            </div>
+      <div className="page-title">
+        <div>
+          <h1>{isSearchMode ? `"${keyword}" 검색 결과` : '전체 종목 둘러보기'}</h1>
+          <div className="page-sub">
+            {loading ? '불러오는 중...' : `${total.toLocaleString()}개 종목`}
           </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Button variant="outline" onClick={() => navigate('/trade')}>← 모의투자로</Button>
+          <Button>+ 매수 주문</Button>
+        </div>
+      </div>
 
-          <Card style={{ marginBottom: 16, padding: '18px 20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <i className="bi bi-search" style={{ fontSize: 16, color: 'var(--primary)' }} />
-              <input
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={handle_key_down}
-                placeholder="종목명, 종목코드를 입력하세요 (예: 삼성전자, 005930)"
-                style={{ flex: 1, fontSize: 15, border: 'none', outline: 'none', color: 'var(--t1)', background: 'transparent' }}
-              />
-              <Button size="sm" onClick={handle_search}>검색</Button>
-            </div>
-          </Card>
+      <Card style={{ marginBottom: 16, padding: '18px 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <i className="bi bi-search" style={{ fontSize: 16, color: 'var(--primary)' }} />
+          <input
+            type="text"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyDown={handle_key_down}
+            placeholder="종목명, 종목코드를 입력하세요 (예: 삼성전자, 005930)"
+            style={{ flex: 1, fontSize: 15, border: 'none', outline: 'none', color: 'var(--t1)', background: 'transparent' }}
+          />
+          {searchInput && (
+            <button className="btn btn-sm btn-outline" onClick={handle_clear}>✕</button>
+          )}
+          <Button size="sm" onClick={handle_search}>검색</Button>
+        </div>
+      </Card>
 
-          <div className="row" style={{ marginBottom: 16 }}>
-            <ChipRow>
-              {(['전체', '코스피', '코스닥', '인기', '급등', '급락', '거래량 상위', '내 등급 추천'] as FilterType[]).map((f) => (
-                <Chip key={f} active={filter === f} onClick={() => setFilter(f)}>{f}</Chip>
-              ))}
-            </ChipRow>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <span className="muted" style={{ fontSize: 12 }}>정렬:</span>
-              <Chip active>시가총액 ↓</Chip>
-            </div>
+      <div className="row" style={{ marginBottom: 16 }}>
+        <ChipRow>
+          {(['전체', 'KOSPI', 'KOSDAQ', 'KONEX'] as MarketFilter[]).map((f) => (
+            <Chip key={f} active={market === f} onClick={() => { setMarket(f); setPage(1) }}>{f}</Chip>
+          ))}
+        </ChipRow>
+      </div>
+
+      <Card style={{ padding: 0, overflow: 'hidden' }}>
+        {loading ? (
+          <div style={{ padding: 60, textAlign: 'center', color: 'var(--t2)' }}>종목을 불러오는 중...</div>
+        ) : stocks.length === 0 ? (
+          <div style={{ padding: 60, textAlign: 'center', color: 'var(--t3)' }}>
+            {isSearchMode ? `"${keyword}"에 해당하는 종목이 없습니다.` : '종목이 없습니다.'}
           </div>
-
-          <Card style={{ padding: 0 }}>
-            <table className="tbl" style={{ width: '100%' }}>
-              <thead>
-                <tr style={{ background: 'var(--primary-subtle)' }}>
-                  <th style={{ paddingLeft: 24 }}>종목</th>
-                  <th>현재가</th>
-                  <th>등락</th>
-                  <th>등락률</th>
-                  <th>거래량</th>
-                  <th>시가총액</th>
-                  <th style={{ paddingRight: 24 }}>액션</th>
-                </tr>
-              </thead>
-              <tbody>
-                {ALL_STOCKS.map((s) => (
-                  <tr key={s.code}>
+        ) : (
+          <table className="tbl" style={{ width: '100%' }}>
+            <thead>
+              <tr style={{ background: 'var(--primary-subtle)' }}>
+                <th style={{ paddingLeft: 24 }}>종목</th>
+                <th>시장</th>
+                <th>섹터</th>
+                <th>통화</th>
+                <th>현재가</th>
+                <th>등락률</th>
+                <th>상태</th>
+                <th style={{ paddingRight: 24 }}>액션</th>
+              </tr>
+            </thead>
+            <tbody>
+              {stocks.map((s) => {
+                const p = prices[s.ticker]
+                const currentPrice = get_price(p)
+                const changeRate = get_rate(p)
+                const isUp = (changeRate ?? 0) > 0
+                const isDown = (changeRate ?? 0) < 0
+                return (
+                  <tr key={s.ticker} onClick={() => navigate(`/trade/stocks/${s.ticker}`)} style={{ cursor: 'pointer' }}>
                     <td style={{ paddingLeft: 24 }}>
                       <div className="stock-cell">
-                        <div className="logo-sm">{s.logo}</div>
+                        <div className="logo-sm" style={{ fontSize: 11 }}>
+                          {s.companyName.slice(0, 2)}
+                        </div>
                         <div>
-                          <div className="strong">{s.name}</div>
-                          <div className="muted" style={{ fontSize: 12 }}>{s.code} · {s.market} · {s.sector}</div>
+                          <div className="strong">{s.companyName}</div>
+                          <div className="muted" style={{ fontSize: 12 }}>{s.ticker}</div>
                         </div>
                       </div>
                     </td>
-                    <td className="strong">{s.price}</td>
-                    <td className={s.up ? 'price-up' : 'price-down'}>{s.change}</td>
-                    <td className={s.up ? 'price-up' : 'price-down'}>{s.changePct}</td>
-                    <td>{s.volume}</td>
-                    <td>{s.cap}</td>
-                    <td style={{ paddingRight: 24 }}>
+                    <td className="muted" style={{ fontSize: 13 }}>{s.market ?? '-'}</td>
+                    <td className="muted" style={{ fontSize: 13 }}>{s.sector ?? '-'}</td>
+                    <td className="muted" style={{ fontSize: 13 }}>{s.currency}</td>
+                    <td style={{ fontWeight: 700, fontSize: 14 }}>
+                      {fmt_price(currentPrice)}
+                    </td>
+                    <td style={{
+                      fontWeight: 700, fontSize: 13,
+                      color: isUp ? 'var(--up)' : isDown ? 'var(--down)' : 'var(--t2)',
+                    }}>
+                      {fmt_rate(changeRate)}
+                    </td>
+                    <td>
+                      <span style={{
+                        fontSize: 12, padding: '3px 10px', borderRadius: 20, fontWeight: 600,
+                        background: s.status === 'ACTIVE' ? 'rgba(16,185,129,0.12)' : 'rgba(107,101,128,0.12)',
+                        color: s.status === 'ACTIVE' ? 'var(--success)' : 'var(--t3)',
+                      }}>
+                        {s.status === 'ACTIVE' ? '거래가능' : s.status === 'SUSPENDED' ? '거래정지' : '상장폐지'}
+                      </span>
+                    </td>
+                    <td style={{ paddingRight: 24 }} onClick={(e) => e.stopPropagation()}>
                       <div style={{ display: 'flex', gap: 6 }}>
                         <button className="btn btn-sm btn-ghost">★</button>
-                        <button className="btn btn-sm btn-up">매수</button>
+                        <button className="btn btn-sm btn-up" disabled={s.status !== 'ACTIVE'}
+                          onClick={(e) => { e.stopPropagation(); navigate(`/trade/stocks/${s.ticker}`) }}>매수</button>
                       </div>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-            <div className="row" style={{ padding: '14px 24px', borderTop: '1px solid var(--border)' }}>
-              <span className="muted" style={{ fontSize: 12 }}>1 - 8 / 2,847 종목</span>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <Button size="sm" variant="outline">← 이전</Button>
-                <Chip active>1</Chip>
-                <Chip>2</Chip>
-                <Chip>3</Chip>
-                <Chip>…</Chip>
-                <Button size="sm" variant="outline">다음 →</Button>
-              </div>
-            </div>
-          </Card>
-        </>
-      ) : (
-        <>
-          <Card
-            style={{ marginBottom: 20, padding: '18px 20px', borderColor: 'var(--primary)', boxShadow: '0 0 0 4px rgba(109,41,217,0.10)' }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <i className="bi bi-search" style={{ fontSize: 16, color: 'var(--primary)' }} />
-              <input
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={handle_key_down}
-                style={{ flex: 1, fontSize: 15, border: 'none', outline: 'none', color: 'var(--t1)', background: 'transparent' }}
-              />
-              <button className="btn btn-sm btn-outline" onClick={handle_clear}>✕</button>
-              <Button size="sm" onClick={handle_search}>검색</Button>
-            </div>
-          </Card>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
 
-          <div className="row" style={{ marginBottom: 16 }}>
-            <div>
-              <h1 style={{ fontSize: 20 }}>검색어 "<span className="hl">{searchKeyword}</span>" — 14개 종목</h1>
-              <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>최근 검색: 카카오 · SK하이닉스 · 현대차</div>
+        {!loading && totalPages > 1 && (
+          <div className="row" style={{ padding: '14px 24px', borderTop: '1px solid var(--border)' }}>
+            <span className="muted" style={{ fontSize: 12 }}>
+              {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} / {total.toLocaleString()}개 종목
+            </span>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <Button size="sm" variant="outline" onClick={() => setPage((p) => p - 1)} disabled={page === 1}>← 이전</Button>
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                const p = Math.max(1, Math.min(page - 2, totalPages - 4)) + i
+                return <Chip key={p} active={p === page} onClick={() => setPage(p)}>{p}</Chip>
+              })}
+              <Button size="sm" variant="outline" onClick={() => setPage((p) => p + 1)} disabled={page === totalPages}>다음 →</Button>
             </div>
-            <ChipRow>
-              <Chip active>전체 14</Chip>
-              <Chip>코스피 12</Chip>
-              <Chip>코스닥 2</Chip>
-            </ChipRow>
           </div>
-
-          <div className="section-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span className="dot-indicator" /> 일치하는 종목
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14, marginBottom: 24 }}>
-            {SEARCH_RESULTS.map((s) => (
-              <div
-                key={s.code}
-                className="card card-clickable"
-                style={{ display: 'flex', alignItems: 'center', gap: 14 }}
-              >
-                <div className="logo-sm" style={{ width: 48, height: 48, fontSize: 13 }}>{s.logo}</div>
-                <div style={{ flex: 1 }}>
-                  <div className="strong" style={{ fontSize: 15 }}>
-                    <span className="hl">{searchKeyword}</span>{s.name.replace(searchKeyword, '')}
-                  </div>
-                  <div className="muted" style={{ fontSize: 12 }}>{s.code} · {s.market} · {s.sector}</div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div className="strong" style={{ fontSize: 16 }}>{s.price}</div>
-                  <div className={s.up ? 'price-up' : 'price-down'} style={{ fontSize: 12 }}>{s.changePct}</div>
-                </div>
-                <button className="btn btn-sm btn-up">매수</button>
-              </div>
-            ))}
-          </div>
-
-          <div className="section-title">관련 추천</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
-            {RELATED.map((r) => (
-              <div key={r.name} className="card card-clickable" style={{ padding: 16 }}>
-                <div className="row">
-                  <span className="pill">{r.sector}</span>
-                  {r.type && <span className="muted" style={{ fontSize: 11 }}>{r.type}</span>}
-                </div>
-                <div className="strong" style={{ marginTop: 8, fontSize: 14 }}>{r.name}</div>
-                <div className="row" style={{ marginTop: 6 }}>
-                  <span className="muted" style={{ fontSize: 12 }}>{r.code}</span>
-                  <span className={r.up ? 'price-up' : 'price-down'} style={{ fontSize: 12 }}>{r.changePct}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
+        )}
+      </Card>
     </AppLayout>
   )
 }

@@ -1,11 +1,14 @@
-import { useState, FormEvent } from 'react'
+import { useState } from 'react'
+import type { FormEvent } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from './useAuth'
 import { validateEmail, validatePassword } from '../utils/validation'
+import { api_login, api_me } from '../api/auth'
 
 interface LoginErrors {
   email?: string
   password?: string
+  general?: string
 }
 
 export function useLoginForm() {
@@ -32,10 +35,25 @@ export function useLoginForm() {
     setErrors({})
     setLoading(true)
     try {
-      // TODO: 실제 로그인 API 호출로 교체
-      await new Promise((r) => setTimeout(r, 600))
-      login({ name: '세린', email, level: '초급 Lv.2' })
+      const { data: tokens } = await api_login({ email, password })
+      localStorage.setItem('accessToken', tokens.accessToken)
+      const { data: profile } = await api_me()
+      login(
+        {
+          id: profile.user_id,
+          name: profile.name,
+          email: profile.email,
+          nickname: profile.nickname,
+          phone: profile.phone,
+          role: profile.role,
+          level: '초급 Lv.1',
+        },
+        tokens.accessToken,
+      )
       navigate(from, { replace: true })
+    } catch (err: any) {
+      const msg = err?.response?.data?.message ?? '이메일 또는 비밀번호가 올바르지 않습니다.'
+      setErrors({ general: msg })
     } finally {
       setLoading(false)
     }

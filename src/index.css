@@ -736,6 +736,7 @@ h1, h2, h3, h4, h5, h6 {
 .tbl {
   width: 100%;
   border-collapse: collapse;
+  padding-top: 16px ;
 }
 
 .tbl th {
@@ -743,7 +744,7 @@ h1, h2, h3, h4, h5, h6 {
   font-size: 12px;
   font-weight: 600;
   color: var(--t3);
-  padding: 0 12px 12px;
+  padding: 14px 12px;
   border-bottom: 1px solid var(--border);
   letter-spacing: 0.3px;
   text-transform: uppercase;

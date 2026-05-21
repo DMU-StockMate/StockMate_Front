@@ -13,8 +13,18 @@ export default function SignupPage() {
     interests,
     loading,
     passwordStrength,
+    emailCodeSent,
+    emailVerified,
+    emailCode,
+    setEmailCode,
+    emailTimer,
+    sendCodeLoading,
+    verifyCodeLoading,
     handle_field,
     handle_toggle_interest,
+    handle_send_code,
+    handle_verify_code,
+    format_timer,
     handle_submit,
   } = useSignupForm()
 
@@ -39,6 +49,16 @@ export default function SignupPage() {
           <p className="muted">투자 학습을 시작해보세요</p>
         </div>
 
+        {errors.general && (
+          <div style={{
+            padding: '10px 14px', borderRadius: 8, marginBottom: 16,
+            background: 'var(--up-light, #FEF2F2)', color: 'var(--up)', fontSize: 13,
+            border: '1px solid var(--up-border, #FCA5A5)',
+          }}>
+            {errors.general}
+          </div>
+        )}
+
         <form className="auth-form" onSubmit={handle_submit} noValidate>
           <Input
             label="이름"
@@ -52,14 +72,102 @@ export default function SignupPage() {
           />
 
           <Input
-            label="이메일"
-            type="email"
-            placeholder="name@example.com"
-            value={form.email}
-            onChange={handle_field('email')}
-            error={errors.email}
-            leftIcon={<i className="bi bi-envelope" />}
-            autoComplete="email"
+            label="닉네임"
+            type="text"
+            placeholder="2~20자, 한글/영문/숫자"
+            value={form.nickname}
+            onChange={handle_field('nickname')}
+            error={errors.nickname}
+            leftIcon={<i className="bi bi-at" />}
+            autoComplete="username"
+          />
+
+          {/* 이메일 + 인증코드 발송 */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+              <div style={{ flex: 1 }}>
+                <Input
+                  label="이메일"
+                  type="email"
+                  placeholder="name@example.com"
+                  value={form.email}
+                  onChange={handle_field('email')}
+                  error={errors.email}
+                  leftIcon={
+                    emailVerified
+                      ? <i className="bi bi-check-circle-fill" style={{ color: 'var(--success)' }} />
+                      : <i className="bi bi-envelope" />
+                  }
+                  autoComplete="email"
+                  disabled={emailVerified}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handle_send_code}
+                disabled={sendCodeLoading || emailVerified}
+                style={{
+                  height: 44, marginBottom: errors.email ? 22 : 0, padding: '0 14px', borderRadius: 10, whiteSpace: 'nowrap',
+                  border: '1.5px solid var(--border)', background: emailVerified ? 'var(--primary-light)' : '#fff',
+                  color: emailVerified ? 'var(--primary)' : 'var(--t1)', fontWeight: 600, fontSize: 13,
+                  cursor: emailVerified || sendCodeLoading ? 'not-allowed' : 'pointer',
+                  opacity: emailVerified ? 0.7 : 1, flexShrink: 0,
+                }}
+              >
+                {sendCodeLoading ? '발송 중...' : emailVerified ? '인증 완료' : emailCodeSent ? '재발송' : '인증코드 발송'}
+              </button>
+            </div>
+
+            {emailCodeSent && !emailVerified && (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                <div style={{ flex: 1, position: 'relative' }}>
+                  <Input
+                    label="인증코드"
+                    type="text"
+                    placeholder="6자리 인증코드 입력"
+                    value={emailCode}
+                    onChange={(e) => setEmailCode(e.target.value)}
+                    error={errors.emailCode}
+                    leftIcon={<i className="bi bi-shield-lock" />}
+                    maxLength={6}
+                  />
+                  {emailTimer > 0 && (
+                    <span style={{
+                      position: 'absolute', right: 12, top: 34,
+                      fontSize: 12, color: emailTimer < 60 ? 'var(--up)' : 'var(--t3)',
+                      fontWeight: 600,
+                    }}>
+                      {format_timer(emailTimer)}
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={handle_verify_code}
+                  disabled={verifyCodeLoading || !emailCode.trim()}
+                  style={{
+                    height: 44, marginBottom: errors.emailCode ? 22 : 0, padding: '0 14px', borderRadius: 10, whiteSpace: 'nowrap',
+                    border: 'none', background: 'var(--primary)', color: '#fff',
+                    fontWeight: 600, fontSize: 13,
+                    cursor: verifyCodeLoading || !emailCode.trim() ? 'not-allowed' : 'pointer',
+                    opacity: verifyCodeLoading || !emailCode.trim() ? 0.6 : 1, flexShrink: 0,
+                  }}
+                >
+                  {verifyCodeLoading ? '확인 중...' : '확인'}
+                </button>
+              </div>
+            )}
+          </div>
+
+          <Input
+            label="전화번호"
+            type="tel"
+            placeholder="010-1234-5678"
+            value={form.phone}
+            onChange={handle_field('phone')}
+            error={errors.phone}
+            leftIcon={<i className="bi bi-phone" />}
+            autoComplete="tel"
           />
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>

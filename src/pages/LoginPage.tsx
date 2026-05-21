@@ -34,6 +34,16 @@ export default function LoginPage() {
           <p className="muted">투자 학습을 이어가 보세요</p>
         </div>
 
+        {errors.general && (
+          <div style={{
+            padding: '10px 14px', borderRadius: 8, marginBottom: 16,
+            background: 'var(--up-light, #FEF2F2)', color: 'var(--up)', fontSize: 13,
+            border: '1px solid var(--up-border, #FCA5A5)',
+          }}>
+            {errors.general}
+          </div>
+        )}
+
         <form className="auth-form" onSubmit={handle_submit} noValidate>
           <Input
             label="이메일"

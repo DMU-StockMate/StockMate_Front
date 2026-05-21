@@ -1,4 +1,4 @@
-import { HTMLAttributes, ReactNode } from 'react'
+import type { HTMLAttributes, ReactNode } from 'react'
 
 type PillVariant = 'primary' | 'gray' | 'up' | 'down' | 'success' | 'warning' | 'accent' | 'outline-light'
 type PillSize = 'sm' | 'lg'

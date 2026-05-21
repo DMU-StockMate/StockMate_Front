@@ -1,9 +1,12 @@
+import type { CSSProperties } from 'react'
+
 interface ProgressProps {
   value: number
   max?: number
   variant?: 'default' | 'hero' | 'success' | 'warning'
   thin?: boolean
   className?: string
+  style?: CSSProperties
 }
 
 export default function Progress({
@@ -12,6 +15,7 @@ export default function Progress({
   variant = 'default',
   thin = false,
   className = '',
+  style,
 }: ProgressProps) {
   const pct = Math.min(100, Math.max(0, (value / max) * 100))
 
@@ -27,7 +31,7 @@ export default function Progress({
     .join(' ')
 
   return (
-    <div className={wrapperClass} role="progressbar" aria-valuenow={value} aria-valuemax={max}>
+    <div className={wrapperClass} role="progressbar" aria-valuenow={value} aria-valuemax={max} style={style}>
       <i className="progress-fill" style={{ width: `${pct}%` }} />
     </div>
   )

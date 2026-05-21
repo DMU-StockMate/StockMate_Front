@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import ProtectedRoute from './components/auth/ProtectedRoute'
+import AdminRoute from './components/auth/AdminRoute'
 import LandingPage from './pages/LandingPage'
 import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
@@ -12,15 +13,21 @@ import AIPage from './pages/AIPage'
 import AIDetailPage from './pages/AIDetailPage'
 import TradePage from './pages/TradePage'
 import TradeStocksPage from './pages/TradeStocksPage'
+import StockDetailPage from './pages/StockDetailPage'
 import TradeHistoryPage from './pages/TradeHistoryPage'
 import MyPage from './pages/MyPage'
 import NewsPage from './pages/NewsPage'
 import RankingPage from './pages/RankingPage'
+import AdminLoginPage from './pages/admin/AdminLoginPage'
+import AdminDashboardPage from './pages/admin/AdminDashboardPage'
+import AdminUsersPage from './pages/admin/AdminUsersPage'
+import AdminStocksPage from './pages/admin/AdminStocksPage'
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* 일반 사용자 페이지 */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
@@ -29,20 +36,25 @@ export default function App() {
 
         <Route element={<ProtectedRoute />}>
           <Route path="/dashboard" element={<DashboardPage />} />
-          {/* 투자학습 */}
           <Route path="/learn" element={<LearnPage />} />
           <Route path="/learn/quiz/:topicId/:questionId" element={<QuizPage />} />
           <Route path="/learn/:section" element={<LearnLevelPage />} />
           <Route path="/learn/:section/:topic" element={<LearnTopicPage />} />
-          {/* AI 분석 */}
           <Route path="/ai" element={<AIPage />} />
           <Route path="/ai/:code" element={<AIDetailPage />} />
-          {/* 모의투자 */}
           <Route path="/trade" element={<TradePage />} />
           <Route path="/trade/stocks" element={<TradeStocksPage />} />
+          <Route path="/trade/stocks/:ticker" element={<StockDetailPage />} />
           <Route path="/trade/history" element={<TradeHistoryPage />} />
-          {/* 기타 */}
           <Route path="/mypage" element={<MyPage />} />
+        </Route>
+
+        {/* 관리자 페이지 */}
+        <Route path="/admin" element={<AdminLoginPage />} />
+        <Route element={<AdminRoute />}>
+          <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+          <Route path="/admin/users" element={<AdminUsersPage />} />
+          <Route path="/admin/stocks" element={<AdminStocksPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

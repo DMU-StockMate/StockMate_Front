@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import AppLayout from '../components/layout/AppLayout'
@@ -5,6 +6,8 @@ import Card from '../components/common/Card'
 import Button from '../components/common/Button'
 import Pill from '../components/common/Pill'
 import Progress from '../components/common/Progress'
+import { api_logout } from '../api/auth'
+import { api_get_statistics, type LearningStatistics } from '../api/learning'
 
 const MENU = [
   { icon: 'bi-person-gear', label: '개인정보 변경' },
@@ -17,8 +20,20 @@ const MENU = [
 export default function MyPage() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const [stats, setStats] = useState<LearningStatistics | null>(null)
 
-  const handle_logout = () => {
+  useEffect(() => {
+    api_get_statistics()
+      .then(({ data }) => setStats(data))
+      .catch(() => {})
+  }, [])
+
+  const handle_logout = async () => {
+    try {
+      await api_logout()
+    } catch {
+      // 서버 에러와 관계없이 로컬 상태 정리
+    }
     logout()
     navigate('/login')
   }
@@ -40,6 +55,9 @@ export default function MyPage() {
               <div>
                 <div style={{ fontSize: 22, fontWeight: 800 }}>{user?.name ?? '사용자'}</div>
                 <div className="muted" style={{ marginTop: 4 }}>{user?.email ?? '-'}</div>
+                {user?.nickname && (
+                  <div className="muted" style={{ marginTop: 2, fontSize: 12 }}>@{user.nickname}</div>
+                )}
                 <div style={{ marginTop: 8, display: 'flex', gap: 6 }}>
                   <Pill>{user?.level ?? '초급 Lv.1'}</Pill>
                   <Pill variant="accent">7일 연속 학습 중</Pill>
@@ -56,8 +74,10 @@ export default function MyPage() {
         <Card variant="hero">
           <div className="label">현재 등급</div>
           <div style={{ fontSize: 28, fontWeight: 800, marginTop: 6 }}>{user?.level ?? '초급 Lv.1'}</div>
-          <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4 }}>다음 등급까지 12문제</div>
-          <Progress value={65} variant="hero" style={{ marginTop: 14 }} />
+          <div style={{ fontSize: 12, opacity: 0.85, marginTop: 4 }}>
+            {stats ? `다음 등급까지 ${Math.max(0, 50 - stats.correct)}문제` : '다음 등급까지 -'}
+          </div>
+          <Progress value={stats ? Math.min(100, stats.correct * 2) : 0} variant="hero" style={{ marginTop: 14 }} />
         </Card>
       </div>
 
@@ -65,7 +85,11 @@ export default function MyPage() {
         {[
           { num: '+4.5%', lbl: '총 수익률', cls: 'price-up' },
           { num: '12', lbl: '거래 횟수', cls: '' },
-          { num: '142', lbl: '푼 문제', cls: '' },
+          {
+            num: stats ? String(stats.total) : '-',
+            lbl: '푼 문제',
+            cls: '',
+          },
         ].map((s) => (
           <Card key={s.lbl} style={{ textAlign: 'center', padding: 20 }}>
             <div style={{ fontSize: 24, fontWeight: 800 }} className={s.cls}>{s.num}</div>
@@ -73,6 +97,27 @@ export default function MyPage() {
           </Card>
         ))}
       </div>
+
+      {stats && (
+        <Card style={{ marginBottom: 20 }}>
+          <div className="row" style={{ marginBottom: 12 }}>
+            <div className="section-title" style={{ marginBottom: 0 }}>학습 통계</div>
+            <span className="muted" style={{ fontSize: 12 }}>정답률 {stats.accuracy}%</span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
+            {[
+              { num: stats.total, lbl: '총 문제 수' },
+              { num: stats.correct, lbl: '정답', cls: 'price-up' },
+              { num: stats.wrong, lbl: '오답', cls: 'price-down' },
+            ].map((s) => (
+              <div key={s.lbl} style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 20, fontWeight: 700 }} className={s.cls}>{s.num}</div>
+                <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 2 }}>{s.lbl}</div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <div className="menu-list">
         {MENU.map((item) => (
