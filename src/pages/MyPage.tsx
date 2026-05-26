@@ -10,10 +10,10 @@ import { api_logout } from '../api/auth'
 import { api_get_statistics, type LearningStatistics } from '../api/learning'
 
 const MENU = [
-  { icon: 'bi-person-gear', label: '개인정보 변경' },
+  { icon: 'bi-person-gear', label: '개인정보 변경', path: '/mypage/edit' },
   { icon: 'bi-heart', label: '찜한 문제' },
-  { icon: 'bi-clock-history', label: '모의투자 내역' },
-  { icon: 'bi-bar-chart-fill', label: '투자 통계' },
+  { icon: 'bi-clock-history', label: '모의투자 내역', path: '/trade/history' },
+  { icon: 'bi-bar-chart-fill', label: '투자 통계', path: '/trade/history' },
   { icon: 'bi-gear', label: '설정' },
 ]
 
@@ -64,7 +64,7 @@ export default function MyPage() {
                 </div>
               </div>
             </div>
-            <Button variant="outline">
+            <Button variant="outline" onClick={() => navigate('/mypage/edit')}>
               <i className="bi bi-pencil" />
               프로필 편집
             </Button>
@@ -121,7 +121,12 @@ export default function MyPage() {
 
       <div className="menu-list">
         {MENU.map((item) => (
-          <div key={item.label} className="menu-row">
+          <div
+            key={item.label}
+            className="menu-row"
+            onClick={item.path ? () => navigate(item.path) : undefined}
+            style={item.path ? { cursor: 'pointer' } : undefined}
+          >
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <i className={`bi ${item.icon}`} style={{ fontSize: 16, color: 'var(--t2)' }} />
               {item.label}

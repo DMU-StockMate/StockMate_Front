@@ -106,9 +106,18 @@ export default function TradePage() {
           <div className="page-sub">1주 단위로 안전하게 실전 감각을 익혀보세요</div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <Button variant="outline" onClick={() => navigate('/trade/history')}>📋 투자 내역</Button>
-          <Button variant="outline">🏆 랭킹전</Button>
-          <Button onClick={() => navigate('/trade/stocks')}>+ 종목 둘러보기</Button>
+          <Button variant="outline" onClick={() => navigate('/trade/history')}>
+            <i className="bi bi-clipboard-data" />
+            투자 내역
+          </Button>
+          <Button variant="outline">
+            <i className="bi bi-trophy" />
+            랭킹전
+          </Button>
+          <Button onClick={() => navigate('/trade/stocks')}>
+            <i className="bi bi-plus" />
+            종목 둘러보기
+          </Button>
         </div>
       </div>
 
@@ -154,12 +163,12 @@ export default function TradePage() {
               <div className="ac-desc">보유 종목 매도</div>
             </div>
             <div className="action-card" onClick={() => navigate('/trade/stocks')}>
-              <div className="ac-ico">🔍</div>
+              <div className="ac-ico"><i className="bi bi-search" /></div>
               <div className="ac-name">종목 둘러보기</div>
               <div className="ac-desc">전체 종목 탐색</div>
             </div>
             <div className="action-card" onClick={() => navigate('/trade/history')}>
-              <div className="ac-ico">📋</div>
+              <div className="ac-ico"><i className="bi bi-clipboard-data" /></div>
               <div className="ac-name">투자 내역</div>
               <div className="ac-desc">기록 + AI 피드백</div>
             </div>
@@ -169,7 +178,7 @@ export default function TradePage() {
 
       {/* 랭킹전 배너 */}
       <div className="ranking-banner" style={{ marginBottom: 20 }}>
-        <div className="trophy-ico">🏆</div>
+        <div className="trophy-ico"><i className="bi bi-trophy-fill" /></div>
         <div style={{ flex: 1 }}>
           <div className="strong" style={{ fontSize: 14 }}>이번 주 랭킹전 진행 중 — 현재 순위 27위 / 312명</div>
           <div style={{ fontSize: 12, marginTop: 2 }}>상위 10% 진입 시 추가 자금 +10,000원 · 5월 6일 마감</div>

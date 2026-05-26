@@ -47,7 +47,7 @@ const LEVELS = [
     tags: ['거시경제', '옵션', '포트폴리오', '+5'],
     count: '230문제 · 권장 Lv.8+',
     progressPct: 0,
-    progressText: '잠금 🔒',
+    progressText: '잠금',
     progressColor: 'var(--t3)',
     recommended: false,
     locked: true,
@@ -148,7 +148,10 @@ export default function LearnPage() {
             </div>
             <div className="lv-foot">
               <span>{lv.count}</span>
-              <span className="pct" style={{ color: lv.progressColor }}>{lv.progressText}</span>
+              <span className="pct" style={{ color: lv.progressColor }}>
+                {lv.locked && <i className="bi bi-lock-fill" />}
+                {lv.progressText}
+              </span>
             </div>
           </div>
         ))}

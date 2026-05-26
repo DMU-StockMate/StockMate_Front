@@ -27,7 +27,7 @@ const TOPIC_DATA: Record<string, {
   quizzes: QuizItem[]
 }> = {
   'basic-terms': {
-    icon: '📘', title: '기초 용어', sectionLabel: '초급 학습',
+    icon: 'bi-book', title: '기초 용어', sectionLabel: '초급 학습',
     totalDone: 12, totalItems: 22, correctCount: 10, wrongCount: 2, earned: 11000,
     quizzes: [
       { id: 1, question: 'PER이 의미하는 것은?', difficulty: '쉬움', reward: 500, status: 'done' },
@@ -55,7 +55,7 @@ const TOPIC_DATA: Record<string, {
     ],
   },
   'chart-basics': {
-    icon: '📈', title: '차트 기초', sectionLabel: '초급 학습',
+    icon: 'bi-graph-up-arrow', title: '차트 기초', sectionLabel: '초급 학습',
     totalDone: 7, totalItems: 18, correctCount: 6, wrongCount: 1, earned: 5600,
     quizzes: Array.from({ length: 18 }, (_, i) => ({
       id: i + 1,
@@ -68,7 +68,7 @@ const TOPIC_DATA: Record<string, {
 }
 
 const FALLBACK_TOPIC = {
-  icon: '📖', title: '학습 콘텐츠', sectionLabel: '초급 학습',
+  icon: 'bi-journal-text', title: '학습 콘텐츠', sectionLabel: '초급 학습',
   totalDone: 0, totalItems: 10, correctCount: 0, wrongCount: 0, earned: 0,
   quizzes: Array.from({ length: 10 }, (_, i) => ({
     id: i + 1, question: `문제 ${i + 1}`, difficulty: '보통' as const, reward: 800,
@@ -112,7 +112,7 @@ export default function LearnTopicPage() {
       <div className="page-title">
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <div className="topic-ico" style={{ width: 56, height: 56, borderRadius: 16, fontSize: 28 }}>
-            {data.icon}
+            <i className={`bi ${data.icon}`} />
           </div>
           <div>
             <h1>{data.title}</h1>

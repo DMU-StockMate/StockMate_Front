@@ -3,22 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom'
 import AppLayout from '../components/layout/AppLayout'
 import Card from '../components/common/Card'
 import Button from '../components/common/Button'
-import {
-  api_get_stock,
-  api_get_stock_latest_price,
-  api_get_stock_summary,
-  api_get_stock_prices,
-  api_get_stock_chart_daily,
-  api_get_stock_chart_weekly,
-  api_get_stock_chart_monthly,
-  type StockDetail,
-  type StockSummary,
-  type StockPriceDaily,
-} from '../api/stocks'
+import type { StockDetail, StockSummary, StockPriceDaily } from '../api/stocks'
+import { useStockDetailData, type StockChartPeriod } from '../hooks/useStockDetailData'
 
-type Period = 'daily' | 'weekly' | 'monthly'
-
-const PERIOD_LABELS: Record<Period, string> = { daily: '일봉', weekly: '주봉', monthly: '월봉' }
+const PERIOD_LABELS: Record<StockChartPeriod, string> = { daily: '일봉', weekly: '주봉', monthly: '월봉' }
 
 const to_num = (v: unknown) => {
   const n = typeof v === 'string' ? Number(v.replaceAll(',', '').replace('%', '').trim()) : Number(v)
@@ -106,33 +94,6 @@ const price_of = (row: StockPriceDaily, keys: string[]) => {
 const date_of = (row: StockPriceDaily) => {
   const record = row as unknown as Record<string, unknown>
   return String(record.tradeDate ?? record.date ?? record.baseDate ?? '')
-}
-
-const get_chart_prices = (data: StockPriceDaily[] | { prices?: StockPriceDaily[]; items?: StockPriceDaily[]; data?: StockPriceDaily[] }) => {
-  if (Array.isArray(data)) return data
-  const payload = unwrap_payload(data)
-  return data.prices ?? data.items ?? (Array.isArray(data.data) ? data.data : undefined) ??
-    (payload.prices as StockPriceDaily[] | undefined) ??
-    (payload.items as StockPriceDaily[] | undefined) ??
-    (payload.content as StockPriceDaily[] | undefined) ??
-    (payload.ohlcv as StockPriceDaily[] | undefined) ??
-    []
-}
-
-const sort_chart_prices = (rows: StockPriceDaily[]) =>
-  [...rows].sort((a, b) => date_of(a).localeCompare(date_of(b)))
-
-const format_local_date = (date: Date) => {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-const get_yesterday_date = () => {
-  const date = new Date()
-  date.setDate(date.getDate() - 1)
-  return format_local_date(date)
 }
 
 /* ── SVG 봉차트 ── */
@@ -412,60 +373,27 @@ function PriceChart({ data }: { data: StockPriceDaily[] }) {
 export default function StockDetailPage() {
   const { ticker } = useParams<{ ticker: string }>()
   const navigate = useNavigate()
-
-  const [stock, setStock] = useState<StockDetail | null>(null)
-  const [summary, setSummary] = useState<StockSummary | null>(null)
-  const [chartData, setChartData] = useState<StockPriceDaily[]>([])
-  const [financials] = useState<Record<string, unknown> | null>(null)
-  const [indicators] = useState<Record<string, unknown> | null>(null)
-  const [dividends] = useState<Record<string, unknown>[]>([])
-  const [period, setPeriod] = useState<Period>('daily')
-  const [loading, setLoading] = useState(true)
-  const [chartLoading, setChartLoading] = useState(false)
-  const [modal, setModal] = useState<{ open: boolean; mode: 'buy' | 'sell' }>({ open: false, mode: 'buy' })
-  const [qty, setQty] = useState(1)
-
-  useEffect(() => {
-    if (!ticker) return
-    setLoading(true)
-    Promise.all([
-      api_get_stock(ticker),
-      api_get_stock_summary(ticker).catch(() => ({ data: null })),
-      api_get_stock_latest_price(ticker).catch(() => ({ data: null })),
-    ])
-      .then(([stockRes, summaryRes, priceRes]) => {
-        setStock(stockRes.data)
-        setSummary({
-          ...unwrap_payload(summaryRes.data),
-          ...unwrap_payload(priceRes.data),
-        } as StockSummary)
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [ticker])
-
-  useEffect(() => {
-    if (!ticker) return
-    setChartLoading(true)
-    const fn =
-      period === 'daily' ? api_get_stock_chart_daily :
-      period === 'weekly' ? api_get_stock_chart_weekly :
-      api_get_stock_chart_monthly
-    const chartParams = { endDate: get_yesterday_date() }
-    fn(ticker, chartParams)
-      .then(({ data }) => {
-        const arr = get_chart_prices(data)
-        if (period === 'daily' && arr.length <= 1) {
-          return api_get_stock_prices(ticker, chartParams).then(({ data: ohlcvData }) => {
-            const fallbackArr = get_chart_prices(ohlcvData)
-            setChartData(sort_chart_prices(fallbackArr.length > arr.length ? fallbackArr : arr))
-          })
-        }
-        setChartData(sort_chart_prices(arr))
-      })
-      .catch(() => setChartData([]))
-      .finally(() => setChartLoading(false))
-  }, [ticker, period])
+  const {
+    account,
+    chartData,
+    chartLoading,
+    dividends,
+    financials,
+    holdings,
+    indicators,
+    loading,
+    modal,
+    period,
+    qty,
+    setModal,
+    setPeriod,
+    setQty,
+    stock,
+    submitTrade,
+    summary,
+    tradeLoading,
+    tradeMessage,
+  } = useStockDetailData(ticker)
 
   if (loading) {
     return (
@@ -493,8 +421,18 @@ export default function StockDetailPage() {
   const changeRate = marketSummary.changeRate
   const isUp = changeRate >= 0
   const priceColor = isUp ? 'var(--up)' : 'var(--down)'
-  const virtualCash = 5_212_400
+  const currentHolding = holdings.find((holding) => holding.ticker === stock.ticker)
+  const virtualCash = to_num(account?.cashBalance)
   const totalOrderPrice = currentPrice * qty
+  const canSubmitTrade =
+    qty > 0 &&
+    !tradeLoading &&
+    currentPrice > 0 &&
+    (modal.mode === 'buy'
+      ? virtualCash >= totalOrderPrice
+      : (currentHolding?.quantity ?? 0) >= qty)
+
+  const submit_trade = () => submitTrade(currentPrice, canSubmitTrade)
 
   return (
     <AppLayout topbarPlaceholder="종목 검색">
@@ -506,6 +444,21 @@ export default function StockDetailPage() {
         <span className="bc-sep">›</span>
         <span className="bc-current">{stock.companyName}</span>
       </div>
+
+      {tradeMessage && (
+        <div
+          className="card"
+          style={{
+            marginBottom: 16,
+            padding: '12px 16px',
+            border: `1px solid ${tradeMessage.type === 'success' ? 'var(--up)' : 'var(--down)'}`,
+            color: tradeMessage.type === 'success' ? 'var(--up)' : 'var(--down)',
+            boxShadow: 'none',
+          }}
+        >
+          {tradeMessage.text}
+        </div>
+      )}
 
       {/* ── 헤더 카드 ── */}
       <Card style={{ marginBottom: 20 }}>
@@ -559,7 +512,7 @@ export default function StockDetailPage() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
           <div className="section-title" style={{ marginBottom: 0 }}>주가 차트</div>
           <div style={{ display: 'flex', gap: 4 }}>
-            {(['daily', 'weekly', 'monthly'] as Period[]).map((p) => (
+            {(['daily', 'weekly', 'monthly'] as StockChartPeriod[]).map((p) => (
               <button
                 key={p}
                 onClick={() => setPeriod(p)}
@@ -755,17 +708,27 @@ export default function StockDetailPage() {
               <div className="row" style={{ fontSize: 13 }}>
                 <span className="muted">{modal.mode === 'buy' ? '매수 후 잔여' : '매도 후 예수금'}</span>
                 <span className="strong" style={{ color: 'var(--primary)' }}>
-                  {Math.max(0, virtualCash - totalOrderPrice).toLocaleString()}원
+                  {(modal.mode === 'buy'
+                    ? Math.max(0, virtualCash - totalOrderPrice)
+                    : virtualCash + totalOrderPrice
+                  ).toLocaleString()}원
                 </span>
               </div>
+              {modal.mode === 'sell' && (
+                <div className="row" style={{ fontSize: 13, marginTop: 8 }}>
+                  <span className="muted">보유 수량</span>
+                  <span>{(currentHolding?.quantity ?? 0).toLocaleString()}주</span>
+                </div>
+              )}
             </div>
 
             <button
               className={`btn btn-lg ${modal.mode === 'buy' ? 'btn-up' : 'btn-down'}`}
               style={{ width: '100%' }}
-              onClick={() => setModal((m) => ({ ...m, open: false }))}
+              disabled={!canSubmitTrade}
+              onClick={submit_trade}
             >
-              {modal.mode === 'buy' ? '매수하기' : '매도하기'}
+              {tradeLoading ? '주문 처리 중...' : modal.mode === 'buy' ? '매수하기' : '매도하기'}
             </button>
           </div>
         </div>

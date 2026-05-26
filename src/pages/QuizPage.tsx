@@ -228,7 +228,7 @@ export default function QuizPage() {
             onClick={() => navigate(`/learn/beginner/${topicId}`)}
             style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--border)', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
-            ×
+            <i className="bi bi-x-lg" />
           </button>
           <div style={{ flex: 1, margin: '0 24px' }}>
             <div className="row" style={{ marginBottom: 8, fontSize: 13, color: 'var(--t2)' }}>
@@ -247,7 +247,9 @@ export default function QuizPage() {
 
         {submitted && (
           <div className={`result-banner ${isCorrect ? 'correct' : 'wrong'}`} style={{ marginBottom: 20 }}>
-            <div className="icon-circle">{isCorrect ? '✓' : '✗'}</div>
+            <div className="icon-circle">
+              <i className={`bi ${isCorrect ? 'bi-check-lg' : 'bi-x-lg'}`} />
+            </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 20, fontWeight: 800 }}>
                 {isCorrect ? '정답입니다!' : '오답입니다.'}

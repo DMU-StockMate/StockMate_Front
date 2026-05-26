@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import type { ReactNode } from 'react'
 import { api_me } from '../api/auth'
 
@@ -19,6 +19,7 @@ interface AuthState {
 
 interface AuthContextType extends AuthState {
   login: (user: AuthUser, token: string) => void
+  updateUser: (user: Partial<AuthUser>) => void
   logout: () => void
   isLoading: boolean
 }
@@ -56,18 +57,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setIsLoading(false))
   }, [])
 
-  const login = (user: AuthUser, token: string) => {
+  const login = useCallback((user: AuthUser, token: string) => {
     localStorage.setItem('accessToken', token)
     setAuth({ isLoggedIn: true, user })
-  }
+  }, [])
 
-  const logout = () => {
+  const updateUser = useCallback((user: Partial<AuthUser>) => {
+    setAuth((prev) => ({
+      ...prev,
+      user: prev.user ? { ...prev.user, ...user } : null,
+    }))
+  }, [])
+
+  const logout = useCallback(() => {
     localStorage.removeItem('accessToken')
     setAuth({ isLoggedIn: false, user: null })
-  }
+  }, [])
 
   return (
-    <AuthContext.Provider value={{ ...auth, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ ...auth, login, updateUser, logout, isLoading }}>
       {children}
     </AuthContext.Provider>
   )

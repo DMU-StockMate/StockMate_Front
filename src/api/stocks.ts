@@ -16,14 +16,19 @@ export interface StockRankingItem extends Partial<Stock> {
   code?: string
   symbol?: string
   name?: string
-  price?: number
-  currentPrice?: number
-  closePrice?: number
-  change?: number
-  changePrice?: number
-  changeRate?: number
-  rate?: number
-  volume?: number
+  price?: number | string
+  currentPrice?: number | string
+  closePrice?: number | string
+  change?: number | string
+  changePrice?: number | string
+  changeRate?: number | string
+  rate?: number | string
+  volume?: number | string
+  tradeDate?: string
+  previousClosePrice?: number | string
+  openPrice?: number | string
+  highPrice?: number | string
+  lowPrice?: number | string
 }
 
 export interface StockDetail extends Stock {
@@ -102,7 +107,10 @@ export const api_search_stocks = (params?: StockSearchParams) =>
 export const api_get_stocks = (params?: StockSearchParams) => {
   const keyword = params?.keyword?.trim() || params?.query?.trim()
   if (keyword) {
-    return api_search_stocks({ ...params, keyword, query: keyword, q: keyword })
+    const { query: _query, q: _q, ...rest } = params ?? {}
+    void _query
+    void _q
+    return api_search_stocks({ ...rest, keyword })
   }
   return api_get_stocks_all(params)
 }
@@ -143,14 +151,14 @@ export const api_get_stock_dividends = (ticker: string) =>
 export const api_get_stock_markets = () =>
   api.get<string[]>('/stocks/markets')
 
-export const api_get_stock_rankings_rise = () =>
-  api.get<StockRankingItem[]>('/stocks/rankings/rise')
+export const api_get_stock_rankings_rise = (params?: { limit?: number | string }) =>
+  api.get<StockRankingItem[]>('/stocks/rankings/rise', { params })
 
-export const api_get_stock_rankings_fall = () =>
-  api.get<StockRankingItem[]>('/stocks/rankings/fall')
+export const api_get_stock_rankings_fall = (params?: { limit?: number | string }) =>
+  api.get<StockRankingItem[]>('/stocks/rankings/fall', { params })
 
-export const api_get_stock_rankings_volume = () =>
-  api.get<StockRankingItem[]>('/stocks/rankings/volume')
+export const api_get_stock_rankings_volume = (params?: { limit?: number | string }) =>
+  api.get<StockRankingItem[]>('/stocks/rankings/volume', { params })
 
 export const api_get_stock_sectors = () =>
   api.get('/stocks/sectors')

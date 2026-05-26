@@ -4,14 +4,17 @@ import 'bootstrap-icons/font/bootstrap-icons.css'
 import './index.css'
 import { AuthProvider } from './context/AuthContext'
 import { AdminAuthProvider } from './context/AdminAuthContext'
+import { WatchlistProvider } from './context/WatchlistContext'
 import App from './App.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <AuthProvider>
-      <AdminAuthProvider>
-        <App />
-      </AdminAuthProvider>
+      <WatchlistProvider>
+        <AdminAuthProvider>
+          <App />
+        </AdminAuthProvider>
+      </WatchlistProvider>
     </AuthProvider>
   </StrictMode>,
 )

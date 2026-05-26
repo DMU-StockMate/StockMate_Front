@@ -13,9 +13,11 @@ import AIPage from './pages/AIPage'
 import AIDetailPage from './pages/AIDetailPage'
 import TradePage from './pages/TradePage'
 import TradeStocksPage from './pages/TradeStocksPage'
+import WatchlistPage from './pages/WatchlistPage'
 import StockDetailPage from './pages/StockDetailPage'
 import TradeHistoryPage from './pages/TradeHistoryPage'
 import MyPage from './pages/MyPage'
+import ProfileEditPage from './pages/ProfileEditPage'
 import NewsPage from './pages/NewsPage'
 import RankingPage from './pages/RankingPage'
 import AdminLoginPage from './pages/admin/AdminLoginPage'
@@ -44,9 +46,11 @@ export default function App() {
           <Route path="/ai/:code" element={<AIDetailPage />} />
           <Route path="/trade" element={<TradePage />} />
           <Route path="/trade/stocks" element={<TradeStocksPage />} />
+          <Route path="/trade/watchlist" element={<WatchlistPage />} />
           <Route path="/trade/stocks/:ticker" element={<StockDetailPage />} />
           <Route path="/trade/history" element={<TradeHistoryPage />} />
           <Route path="/mypage" element={<MyPage />} />
+          <Route path="/mypage/edit" element={<ProfileEditPage />} />
         </Route>
 
         {/* 관리자 페이지 */}
