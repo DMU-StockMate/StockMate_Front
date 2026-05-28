@@ -4,6 +4,8 @@ import {
   api_create_watchlist,
   api_delete_watchlist,
   api_get_watchlist,
+  api_get_watchlist_realtime_price,
+  api_subscribe_watchlist_realtime,
   type WatchlistStock,
 } from '../api/watchlist'
 import { api_get_stock_latest_price, type Stock, type StockPriceDaily } from '../api/stocks'
@@ -122,17 +124,29 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
         .map(normalize_watchlist_item)
         .filter((row): row is WatchlistRow => row !== null)
 
+      await Promise.all(rows.map((row) => api_subscribe_watchlist_realtime(row.watchlistId).catch(() => undefined)))
+
       const pricedRows = await Promise.all(rows.map(async (row) => {
         try {
-          const { data: priceData } = await api_get_stock_latest_price(row.ticker)
-          const price = unwrap_price(priceData) as unknown as StockPriceDaily
+          const { data: realtimeData } = await api_get_watchlist_realtime_price(row.watchlistId)
+          const price = unwrap_price(realtimeData) as unknown as StockPriceDaily
           return {
             ...row,
             currentPrice: get_price(price) || row.currentPrice,
             changeRate: get_rate(price) ?? row.changeRate,
           }
         } catch {
-          return row
+          try {
+            const { data: priceData } = await api_get_stock_latest_price(row.ticker)
+            const price = unwrap_price(priceData) as unknown as StockPriceDaily
+            return {
+              ...row,
+              currentPrice: get_price(price) || row.currentPrice,
+              changeRate: get_rate(price) ?? row.changeRate,
+            }
+          } catch {
+            return row
+          }
         }
       }))
 
@@ -148,6 +162,32 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!isLoading) void reload()
   }, [isLoading, reload])
+
+  useEffect(() => {
+    if (!isLoggedIn || items.length === 0) return
+
+    const timer = window.setInterval(() => {
+      void Promise.all(items.map(async (row) => {
+        try {
+          const { data } = await api_get_watchlist_realtime_price(row.watchlistId)
+          const price = unwrap_price(data) as unknown as StockPriceDaily
+          setItems((prev) => prev.map((item) => (
+            item.watchlistId === row.watchlistId
+              ? {
+                ...item,
+                currentPrice: get_price(price) || item.currentPrice,
+                changeRate: get_rate(price) ?? item.changeRate,
+              }
+              : item
+          )))
+        } catch {
+          // 실시간 가격이 아직 없으면 기존 표시값을 유지합니다.
+        }
+      }))
+    }, 5000)
+
+    return () => window.clearInterval(timer)
+  }, [isLoggedIn, items])
 
   const byTicker = useMemo(() => {
     const map: Record<string, WatchlistRow> = {}
@@ -186,7 +226,11 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
         return
       }
 
-      await api_create_watchlist({ stockCode: ticker })
+      const { data } = await api_create_watchlist({ stockCode: ticker })
+      const createdId = pick_text(as_object(data), ['watchlistId', 'id', 'watchlist_id'])
+      if (createdId) {
+        await api_subscribe_watchlist_realtime(createdId)
+      }
       await reload()
     } catch (err) {
       setError(get_error_message(err, existing ? '관심 종목 삭제에 실패했습니다.' : '관심 종목 등록에 실패했습니다.'))

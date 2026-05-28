@@ -5,6 +5,7 @@ import Card from '../components/common/Card'
 import Button from '../components/common/Button'
 import type { StockDetail, StockSummary, StockPriceDaily } from '../api/stocks'
 import { useStockDetailData, type StockChartPeriod } from '../hooks/useStockDetailData'
+import { useWatchlist } from '../hooks/useWatchlist'
 
 const PERIOD_LABELS: Record<StockChartPeriod, string> = { daily: '일봉', weekly: '주봉', monthly: '월봉' }
 
@@ -28,12 +29,25 @@ const fmt_val = (v: unknown, unit = '') => {
   return n !== 0 ? `${n.toLocaleString()}${unit}` : '-'
 }
 
+const fmt_indicator = (v: unknown, unit = '') => {
+  const n = to_num(v)
+  return n !== 0 ? `${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}${unit}` : '-'
+}
+
+const fmt_market_cap = (v: unknown) => {
+  const n = to_num(v)
+  return n > 0 ? `${Math.round(n / 100000000).toLocaleString()}억` : '-'
+}
+
 const as_object = (value: unknown): Record<string, unknown> =>
   value && typeof value === 'object' ? value as Record<string, unknown> : {}
 
 const unwrap_payload = (value: unknown) => {
   const obj = as_object(value)
-  return as_object(obj.data ?? obj.summary ?? obj.price ?? obj.latestPrice ?? obj.latest ?? value)
+  const nested = as_object(
+    obj.data ?? obj.summary ?? obj.price ?? obj.latestPrice ?? obj.latest,
+  )
+  return { ...nested, ...obj }
 }
 
 const pick_num = (...sources: unknown[]) => {
@@ -394,6 +408,7 @@ export default function StockDetailPage() {
     tradeLoading,
     tradeMessage,
   } = useStockDetailData(ticker)
+  const watchlist = useWatchlist()
 
   if (loading) {
     return (
@@ -421,6 +436,7 @@ export default function StockDetailPage() {
   const changeRate = marketSummary.changeRate
   const isUp = changeRate >= 0
   const priceColor = isUp ? 'var(--up)' : 'var(--down)'
+  const isWatchlisted = watchlist.isInWatchlist(stock.ticker)
   const currentHolding = holdings.find((holding) => holding.ticker === stock.ticker)
   const virtualCash = to_num(account?.cashBalance)
   const totalOrderPrice = currentPrice * qty
@@ -431,11 +447,26 @@ export default function StockDetailPage() {
     (modal.mode === 'buy'
       ? virtualCash >= totalOrderPrice
       : (currentHolding?.quantity ?? 0) >= qty)
+  const indicatorValues = indicators?.indicators
+  const hasFinancialIndicators = Boolean(
+    indicators?.dataAvailability?.financialIndicators ||
+    (indicatorValues && Object.values(indicatorValues).some((value) => to_num(value) !== 0)),
+  )
+  const hasBasicIndicators = Boolean(
+    indicators && [
+      indicators.marketCap,
+      indicators.estimatedMarketCap,
+      indicators.totalShares,
+      indicators.currentPrice,
+      indicators.previousClosePrice,
+    ].some((value) => to_num(value) !== 0),
+  )
+  const hasIndicators = hasFinancialIndicators || hasBasicIndicators
 
   const submit_trade = () => submitTrade(currentPrice, canSubmitTrade)
 
   return (
-    <AppLayout topbarPlaceholder="종목 검색">
+    <AppLayout topbarPlaceholder="종목 검색" hasWishlist>
       {/* Breadcrumb */}
       <div className="breadcrumb">
         <span className="bc-link" onClick={() => navigate('/trade')}>모의투자</span>
@@ -457,6 +488,21 @@ export default function StockDetailPage() {
           }}
         >
           {tradeMessage.text}
+        </div>
+      )}
+
+      {watchlist.error && (
+        <div
+          className="card"
+          style={{
+            marginBottom: 16,
+            padding: '12px 16px',
+            border: '1px solid var(--up)',
+            color: 'var(--up)',
+            boxShadow: 'none',
+          }}
+        >
+          {watchlist.error}
         </div>
       )}
 
@@ -496,6 +542,15 @@ export default function StockDetailPage() {
               <div className="muted" style={{ fontSize: 13 }}>가격 정보 없음</div>
             )}
             <div style={{ display: 'flex', gap: 8 }}>
+              <Button
+                variant="outline"
+                disabled={watchlist.actionTicker === stock.ticker}
+                title={isWatchlisted ? '관심 종목 삭제' : '관심 종목 추가'}
+                onClick={() => void watchlist.toggleStock(stock)}
+              >
+                <i className={`bi ${isWatchlisted ? 'bi-star-fill' : 'bi-star'}`} />
+                {isWatchlisted ? '관심종목 해제' : '관심종목'}
+              </Button>
               <Button variant="outline" onClick={() => { setModal({ open: true, mode: 'sell' }); setQty(1) }}>
                 매도
               </Button>
@@ -564,7 +619,7 @@ export default function StockDetailPage() {
                 { label: '현재가', value: fmt_price(currentPrice) },
                 { label: '등락률', value: fmt_rate(changeRate) },
                 { label: '거래량', value: marketSummary.volume ? fmt_val(marketSummary.volume, '주') : '-' },
-                { label: '시가총액', value: marketSummary.marketCap ? `${(marketSummary.marketCap / 1e8).toFixed(0)}억` : '-' },
+                { label: '시가총액', value: fmt_market_cap(marketSummary.marketCap) },
               ].map(({ label, value }) => (
                 <div key={label} className="metric">
                   <div className="lbl">{label}</div>
@@ -579,19 +634,29 @@ export default function StockDetailPage() {
 
         <Card>
           <div className="section-title" style={{ marginBottom: 16 }}>투자 지표</div>
-          {indicators ? (
+          {hasIndicators ? (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               {[
-                { label: 'PER', value: fmt_val(indicators.per ?? indicators.PER, '배') },
-                { label: 'PBR', value: fmt_val(indicators.pbr ?? indicators.PBR, '배') },
-                { label: 'ROE', value: fmt_val(indicators.roe ?? indicators.ROE, '%') },
-                { label: 'EPS', value: fmt_val(indicators.eps ?? indicators.EPS, '원') },
+                { label: 'PER', value: fmt_indicator(indicatorValues?.per, '배') },
+                { label: 'PBR', value: fmt_indicator(indicatorValues?.pbr, '배') },
+                { label: 'ROE', value: fmt_indicator(indicatorValues?.roe, '%') },
+                { label: 'EPS', value: fmt_indicator(indicatorValues?.eps, '원') },
+                { label: 'BPS', value: fmt_indicator(indicatorValues?.bps, '원') },
+                { label: '배당수익률', value: fmt_indicator(indicatorValues?.dividendYield, '%') },
+                { label: '시가총액', value: fmt_market_cap(indicators?.marketCap ?? indicators?.estimatedMarketCap) },
+                { label: '상장주식수', value: fmt_val(indicators?.totalShares, '주') },
               ].map(({ label, value }) => (
                 <div key={label} className="metric">
                   <div className="lbl">{label}</div>
                   <div className="val" style={{ fontSize: 15 }}>{value}</div>
                 </div>
               ))}
+              {(indicators?.indicatorTradeDate || indicators?.tradeDate) && (
+                <div className="muted" style={{ gridColumn: '1 / -1', fontSize: 12, paddingTop: 4 }}>
+                  기준일 {indicators.indicatorTradeDate ?? indicators.tradeDate}
+                  {!hasFinancialIndicators && ' · PER/PBR 등 재무지표는 수집 데이터가 없어 표시되지 않습니다'}
+                </div>
+              )}
             </div>
           ) : (
             <div className="muted" style={{ textAlign: 'center', padding: '24px 0', fontSize: 13 }}>지표 데이터가 없습니다</div>

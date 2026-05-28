@@ -1,13 +1,18 @@
-import { Navigate, Outlet } from 'react-router-dom'
-import { useAdminAuth } from '../../context/AdminAuthContext'
+import { Navigate, Outlet, useLocation } from 'react-router-dom'
+import { useAuth } from '../../hooks/useAuth'
 
 export default function AdminRoute() {
-  const { isAdminLoggedIn, isLoading } = useAdminAuth()
+  const { isLoggedIn, isLoading, user } = useAuth()
+  const location = useLocation()
 
   if (isLoading) return null
 
-  if (!isAdminLoggedIn) {
-    return <Navigate to="/admin" replace />
+  if (!isLoggedIn) {
+    return <Navigate to="/login" state={{ from: location }} replace />
+  }
+
+  if (user?.role !== 'ADMIN') {
+    return <Navigate to="/dashboard" replace />
   }
 
   return <Outlet />

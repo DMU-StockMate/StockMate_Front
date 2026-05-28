@@ -45,10 +45,15 @@ const OPTIONAL_NAV: NavItemDef[] = [
   { path: '/ranking', label: '랭킹 & 커뮤니티', icon: 'bi-trophy' },
 ]
 
+const ADMIN_NAV: NavItemDef[] = [
+  { path: '/admin/dashboard', label: '관리자', icon: 'bi-shield-lock' },
+]
+
 export default function Sidebar() {
   const location = useLocation()
   const navigate = useNavigate()
   const { isLoggedIn, user, logout } = useAuth()
+  const isAdmin = user?.role === 'ADMIN'
 
   const getInitialOpen = () =>
     NAV_ITEMS
@@ -82,7 +87,12 @@ export default function Sidebar() {
 
   return (
     <aside className="sidebar">
-      <div className="sidebar-logo">
+      <div
+        className="sidebar-logo"
+        onClick={() => navigate(isLoggedIn ? '/dashboard' : '/')}
+        style={{ cursor: 'pointer' }}
+        title="홈으로 이동"
+      >
         <div className="logo-mark">S</div>
         <div className="logo-name">StockMate</div>
       </div>
@@ -149,6 +159,24 @@ export default function Sidebar() {
             {item.label}
           </NavLink>
         ))}
+
+        {isAdmin && (
+          <>
+            <div className="nav-divider" />
+            <div className="nav-section">관리</div>
+
+            {ADMIN_NAV.map((item) => (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+              >
+                <i className={`bi ${item.icon} nav-icon`} />
+                {item.label}
+              </NavLink>
+            ))}
+          </>
+        )}
       </nav>
 
       <div className="sidebar-footer">

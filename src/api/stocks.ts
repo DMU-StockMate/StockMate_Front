@@ -98,6 +98,36 @@ export interface StockChartResponse {
   prices: StockPriceDaily[]
 }
 
+export interface StockInvestmentIndicators {
+  stockId: number
+  ticker: string
+  companyName: string
+  tradeDate?: string | null
+  currentPrice?: number | string | null
+  previousClosePrice?: number | string | null
+  changePrice?: number | string | null
+  changeRate?: number | string | null
+  marketCap?: number | string | null
+  totalShares?: number | string | null
+  estimatedMarketCap?: number | string | null
+  indicators?: {
+    per?: number | string | null
+    pbr?: number | string | null
+    eps?: number | string | null
+    bps?: number | string | null
+    roe?: number | string | null
+    dividendYield?: number | string | null
+    dps?: number | string | null
+  }
+  indicatorTradeDate?: string | null
+  indicatorSource?: string | null
+  dataAvailability?: {
+    marketCap?: boolean
+    totalShares?: boolean
+    financialIndicators?: boolean
+  }
+}
+
 export const api_get_stocks_all = (params?: Omit<StockSearchParams, 'keyword' | 'query'>) =>
   api.get<StockListResponse | Stock[]>('/stocks/all', { params })
 
@@ -124,6 +154,12 @@ export const api_get_stock_prices = (ticker: string, params?: StockPriceParams) 
 export const api_get_stock_latest_price = (ticker: string) =>
   api.get<StockPriceDaily>(`/stocks/${ticker}/price`)
 
+export const api_subscribe_stock_realtime = (stockCodes: string[]) =>
+  api.post('/stocks/realtime/subscribe', { stockCodes })
+
+export const api_get_stock_realtime_price = (ticker: string) =>
+  api.get<StockPriceDaily>(`/stocks/${ticker}/realtime/price`)
+
 export const api_get_stock_summary = (ticker: string) =>
   api.get<StockSummary>(`/stocks/${ticker}/summary`)
 
@@ -143,7 +179,7 @@ export const api_get_stock_financials = (ticker: string) =>
   api.get(`/stocks/${ticker}/financials`)
 
 export const api_get_stock_indicators = (ticker: string) =>
-  api.get(`/stocks/${ticker}/indicators`)
+  api.get<StockInvestmentIndicators>(`/stocks/${ticker}/indicators`)
 
 export const api_get_stock_dividends = (ticker: string) =>
   api.get(`/stocks/${ticker}/dividends`)

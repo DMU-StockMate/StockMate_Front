@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import AppLayout from '../components/layout/AppLayout'
 import Card from '../components/common/Card'
@@ -6,16 +7,13 @@ import Button from '../components/common/Button'
 import Pill from '../components/common/Pill'
 import Progress from '../components/common/Progress'
 import Chip, { ChipRow } from '../components/common/Chip'
+import { api_get_stock_prices } from '../api/stocks'
+import { format_money, format_rate, parse_number, useTradeHistory } from '../hooks/useTradeHistory'
 
-const CHART_POINTS = '0,140 80,130 160,150 240,110 320,120 400,90 480,100 560,70 640,80 720,55 800,65 880,40 960,50 1040,30 1100,25'
-const CHART_FILL = CHART_POINTS + ' 1100,200 0,200'
 const PERIOD_TABS = ['1주', '1개월', '3개월', '1년']
-
-const HOLDINGS = [
-  { name: '삼성전자', code: '005930', abbr: '삼', shares: 3, avgPrice: '70,200원', curPrice: '72,400원', rate: '+3.13%', up: true },
-  { name: '카카오', code: '035720', abbr: '카', shares: 2, avgPrice: '58,000원', curPrice: '55,000원', rate: '-5.17%', up: false },
-  { name: 'SK하이닉스', code: '000660', abbr: 'SK', shares: 1, avgPrice: '185,500원', curPrice: '192,300원', rate: '+3.66%', up: true },
-]
+const PERIOD_DAYS: Record<string, number> = { '1주': 7, '1개월': 30, '3개월': 90, '1년': 365 }
+const CHART_WIDTH = 1100
+const CHART_HEIGHT = 200
 
 const RECOMMEND = [
   { tag: '기초 용어', reward: '+500원', question: 'PER이 의미하는 것은?' },
@@ -23,9 +21,86 @@ const RECOMMEND = [
   { tag: '재무제표', reward: '+1,000원', question: 'ROE가 높을수록 좋은가?' },
 ]
 
+const build_chart_points = (values: number[]) => {
+  if (values.length === 0) return ''
+  if (values.length === 1) values = [values[0], values[0]]
+
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const range = max - min || 1
+  const topPadding = 18
+  const bottomPadding = 24
+  const drawableHeight = CHART_HEIGHT - topPadding - bottomPadding
+
+  return values.map((value, index) => {
+    const x = values.length === 1 ? CHART_WIDTH : (index / (values.length - 1)) * CHART_WIDTH
+    const y = topPadding + ((max - value) / range) * drawableHeight
+    return `${x.toFixed(1)},${y.toFixed(1)}`
+  }).join(' ')
+}
+
+const format_chart_period = (period: string) =>
+  period === '1년' ? '최근 1년' : `최근 ${period}`
+
 export default function DashboardPage() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [period, setPeriod] = useState('1개월')
+  const [assetTrend, setAssetTrend] = useState<number[]>([])
+  const [chartLoading, setChartLoading] = useState(false)
+  const { holdings, summary, loading, error } = useTradeHistory()
+
+  useEffect(() => {
+    let canceled = false
+
+    const loadAssetTrend = async () => {
+      if (holdings.length === 0) {
+        setAssetTrend(summary.totalAsset > 0 ? [summary.totalAsset, summary.totalAsset] : [])
+        return
+      }
+
+      setChartLoading(true)
+      try {
+        const days = PERIOD_DAYS[period] ?? 30
+        const results = await Promise.allSettled(
+          holdings.map((holding) => api_get_stock_prices(holding.ticker, { days, limit: days })),
+        )
+        const valuesByDate = new Map<string, number>()
+
+        results.forEach((result, index) => {
+          if (result.status !== 'fulfilled') return
+          const quantity = holdings[index]?.quantity ?? 0
+          result.value.data.prices?.forEach((price) => {
+            const closePrice = parse_number(price.closePrice)
+            if (!price.tradeDate || closePrice <= 0 || quantity <= 0) return
+            valuesByDate.set(price.tradeDate, (valuesByDate.get(price.tradeDate) ?? summary.cashBalance) + closePrice * quantity)
+          })
+        })
+
+        const nextTrend = Array.from(valuesByDate.entries())
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([, value]) => value)
+
+        if (!canceled) {
+          setAssetTrend(nextTrend.length > 0 ? nextTrend : [summary.totalAsset, summary.totalAsset])
+        }
+      } catch {
+        if (!canceled) setAssetTrend(summary.totalAsset > 0 ? [summary.totalAsset, summary.totalAsset] : [])
+      } finally {
+        if (!canceled) setChartLoading(false)
+      }
+    }
+
+    void loadAssetTrend()
+    return () => {
+      canceled = true
+    }
+  }, [holdings, period, summary.cashBalance, summary.totalAsset])
+
+  const chartPoints = useMemo(() => build_chart_points(assetTrend), [assetTrend])
+  const chartFill = chartPoints ? `${chartPoints} ${CHART_WIDTH},${CHART_HEIGHT} 0,${CHART_HEIGHT}` : ''
+  const lastChartPoint = chartPoints.split(' ').at(-1)?.split(',').map(Number) ?? [CHART_WIDTH, CHART_HEIGHT / 2]
+  const topHoldings = holdings.slice(0, 5)
 
   return (
     <AppLayout hasNotification hasWishlist>
@@ -44,19 +119,28 @@ export default function DashboardPage() {
       <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: 20, marginBottom: 20 }}>
         <Card variant="hero" className="card-lg">
           <div className="label">총 가상 자산</div>
-          <div style={{ fontSize: 32, fontWeight: 800, marginTop: 8 }}>12,540,000원</div>
+          <div style={{ fontSize: 32, fontWeight: 800, marginTop: 8 }}>
+            {loading ? '불러오는 중' : format_money(summary.totalAsset)}
+          </div>
           <div className="row" style={{ marginTop: 14 }}>
             <div>
               <div style={{ fontSize: 12, opacity: 0.8 }}>평가 손익</div>
-              <div style={{ fontSize: 16, fontWeight: 700, marginTop: 2 }}>+540,000원</div>
+              <div style={{ fontSize: 16, fontWeight: 700, marginTop: 2 }}>
+                {loading ? '-' : `${summary.totalProfit >= 0 ? '+' : ''}${format_money(summary.totalProfit)}`}
+              </div>
             </div>
             <div>
-              <div style={{ fontSize: 12, opacity: 0.8 }}>오늘 수익률</div>
-              <div style={{ fontSize: 16, fontWeight: 700, marginTop: 2 }}>+1.84%</div>
+              <div style={{ fontSize: 12, opacity: 0.8 }}>총 수익률</div>
+              <div style={{ fontSize: 16, fontWeight: 700, marginTop: 2 }}>
+                {loading ? '-' : format_rate(summary.totalProfitRate)}
+              </div>
             </div>
-            <Pill variant="outline-light" style={{ cursor: 'pointer' }}>
+            <Pill variant="outline-light" style={{ cursor: 'pointer' }} onClick={() => navigate('/trade')}>
               모의투자 ›
             </Pill>
+          </div>
+          <div style={{ opacity: 0.85, fontSize: 12, marginTop: 12 }}>
+            예수금 {format_money(summary.cashBalance)} · 보유 평가 {format_money(summary.stockValue)}
           </div>
         </Card>
 
@@ -100,7 +184,9 @@ export default function DashboardPage() {
         <div className="row" style={{ marginBottom: 16 }}>
           <div>
             <div className="section-title" style={{ marginBottom: 0 }}>자산 추이</div>
-            <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>최근 1개월 평가금액 변화</div>
+            <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+              {format_chart_period(period)} 평가금액 변화
+            </div>
           </div>
           <ChipRow>
             {PERIOD_TABS.map((t) => (
@@ -110,18 +196,31 @@ export default function DashboardPage() {
             ))}
           </ChipRow>
         </div>
+        {error && (
+          <div className="muted" style={{ marginBottom: 12, color: 'var(--up)' }}>{error}</div>
+        )}
         <div style={{ height: 200 }}>
-          <svg viewBox="0 0 1100 200" preserveAspectRatio="none" style={{ width: '100%', height: '100%' }}>
-            <defs>
-              <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#8B5CF6" stopOpacity="0.30" />
-                <stop offset="100%" stopColor="#8B5CF6" stopOpacity="0" />
-              </linearGradient>
-            </defs>
-            <polyline fill="url(#chartGrad)" stroke="none" points={CHART_FILL} />
-            <polyline fill="none" stroke="#6D29D9" strokeWidth="2.5" points={CHART_POINTS} />
-            <circle cx="1100" cy="25" r="5" fill="#6D29D9" stroke="#fff" strokeWidth="2.5" />
-          </svg>
+          {chartLoading || loading ? (
+            <div className="muted" style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              자산 추이를 불러오는 중입니다.
+            </div>
+          ) : chartPoints ? (
+            <svg viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`} preserveAspectRatio="none" style={{ width: '100%', height: '100%' }}>
+              <defs>
+                <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#8B5CF6" stopOpacity="0.30" />
+                  <stop offset="100%" stopColor="#8B5CF6" stopOpacity="0" />
+                </linearGradient>
+              </defs>
+              <polyline fill="url(#chartGrad)" stroke="none" points={chartFill} />
+              <polyline fill="none" stroke="#6D29D9" strokeWidth="2.5" points={chartPoints} />
+              <circle cx={lastChartPoint[0]} cy={lastChartPoint[1]} r="5" fill="#6D29D9" stroke="#fff" strokeWidth="2.5" />
+            </svg>
+          ) : (
+            <div className="muted" style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              자산 추이를 표시할 데이터가 없습니다.
+            </div>
+          )}
         </div>
       </Card>
 
@@ -130,7 +229,7 @@ export default function DashboardPage() {
         <Card>
           <div className="row" style={{ marginBottom: 8 }}>
             <div className="section-title" style={{ marginBottom: 0 }}>보유 종목</div>
-            <span style={{ fontSize: 12, cursor: 'pointer', color: 'var(--primary)' }}>전체 보기 →</span>
+            <span style={{ fontSize: 12, cursor: 'pointer', color: 'var(--primary)' }} onClick={() => navigate('/trade/history')}>전체 보기 →</span>
           </div>
           <table className="tbl">
             <thead>
@@ -139,26 +238,52 @@ export default function DashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {HOLDINGS.map((h) => (
-                <tr key={h.code}>
+              {loading && (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: 'center', color: 'var(--t2)' }}>보유 종목을 불러오는 중입니다.</td>
+                </tr>
+              )}
+              {!loading && topHoldings.length === 0 && (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: 'center', color: 'var(--t2)' }}>아직 보유 중인 종목이 없습니다.</td>
+                </tr>
+              )}
+              {!loading && topHoldings.map((holding) => (
+                <tr key={holding.holdingId} onClick={() => navigate(`/trade/stocks/${holding.ticker}`)}>
                   <td>
                     <div className="stock-cell">
-                      <div className="stock-logo">{h.abbr}</div>
+                      <div className="stock-logo">{holding.companyName.slice(0, 2)}</div>
                       <div>
-                        <div className="strong">{h.name}</div>
-                        <div className="muted" style={{ fontSize: 12 }}>{h.code}</div>
+                        <div className="strong">{holding.companyName}</div>
+                        <div className="muted" style={{ fontSize: 12 }}>{holding.ticker}</div>
                       </div>
                     </div>
                   </td>
-                  <td>{h.shares}주</td>
-                  <td>{h.avgPrice}</td>
-                  <td className="strong">{h.curPrice}</td>
-                  <td className={h.up ? 'price-up' : 'price-down'}>{h.rate}</td>
-                  <td><Button variant="ghost" size="sm">매도</Button></td>
+                  <td>{holding.quantity.toLocaleString()}주</td>
+                  <td>{format_money(holding.averagePriceNum)}</td>
+                  <td className="strong">{format_money(holding.currentPrice)}</td>
+                  <td className={holding.profitRate >= 0 ? 'price-up' : 'price-down'}>{format_rate(holding.profitRate)}</td>
+                  <td>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        navigate(`/trade/stocks/${holding.ticker}`)
+                      }}
+                    >
+                      매도
+                    </Button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          {!loading && holdings.length > topHoldings.length && (
+            <div className="muted" style={{ marginTop: 12, fontSize: 12 }}>
+              외 {holdings.length - topHoldings.length}개 종목은 투자 내역에서 확인할 수 있습니다.
+            </div>
+          )}
         </Card>
 
         <Card>

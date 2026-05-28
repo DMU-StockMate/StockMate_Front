@@ -5,10 +5,13 @@ import {
   api_get_stock_summary,
   api_get_stock_prices,
   api_get_stocks,
+  api_get_stock_indicators,
   api_get_stock_chart_daily,
   api_get_stock_chart_weekly,
   api_get_stock_chart_monthly,
+  api_subscribe_stock_realtime,
   type StockDetail,
+  type StockInvestmentIndicators,
   type StockSummary,
   type StockPriceDaily,
 } from '../api/stocks'
@@ -28,7 +31,10 @@ const as_object = (value: unknown): Record<string, unknown> =>
 
 const unwrap_payload = (value: unknown) => {
   const obj = as_object(value)
-  return as_object(obj.data ?? obj.summary ?? obj.price ?? obj.latestPrice ?? obj.latest ?? value)
+  const nested = as_object(
+    obj.data ?? obj.summary ?? obj.price ?? obj.latestPrice ?? obj.latest,
+  )
+  return { ...nested, ...obj }
 }
 
 const get_text = (obj: Record<string, unknown>, keys: string[], fallback = '') => {
@@ -149,6 +155,17 @@ const normalize_summary = (summaryData: unknown, priceData: unknown): StockSumma
 const sort_chart_prices = (rows: StockPriceDaily[]) =>
   [...rows].sort((a, b) => date_of(a).localeCompare(date_of(b)))
 
+const get_number = (obj: Record<string, unknown>, keys: string[]) => {
+  for (const key of keys) {
+    const value = obj[key]
+    const numberValue = typeof value === 'string'
+      ? Number(value.replaceAll(',', '').trim())
+      : Number(value)
+    if (Number.isFinite(numberValue) && numberValue > 0) return numberValue
+  }
+  return 0
+}
+
 const format_local_date = (date: Date) => {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -160,6 +177,33 @@ const get_yesterday_date = () => {
   const date = new Date()
   date.setDate(date.getDate() - 1)
   return format_local_date(date)
+}
+
+const merge_realtime_price_into_chart = (
+  rows: StockPriceDaily[],
+  realtimePayload: Record<string, unknown>,
+) => {
+  const currentPrice = get_number(realtimePayload, ['currentPrice', 'price', 'closePrice', 'close'])
+  if (currentPrice <= 0 || rows.length === 0) return rows
+
+  const nextRows = [...rows]
+  const lastIndex = nextRows.length - 1
+  const last = as_object(nextRows[lastIndex])
+  const openPrice = get_number(last, ['openPrice', 'open']) || currentPrice
+  const highPrice = Math.max(get_number(last, ['highPrice', 'high']) || currentPrice, currentPrice)
+  const lowPrice = Math.min(get_number(last, ['lowPrice', 'low']) || currentPrice, currentPrice)
+
+  nextRows[lastIndex] = {
+    ...(nextRows[lastIndex] as unknown as Record<string, unknown>),
+    openPrice,
+    highPrice,
+    lowPrice,
+    closePrice: currentPrice,
+    close: currentPrice,
+    currentPrice,
+  } as unknown as StockPriceDaily
+
+  return nextRows
 }
 
 const get_error_message = (error: unknown) => {
@@ -175,7 +219,7 @@ export function useStockDetailData(ticker?: string) {
   const [summary, setSummary] = useState<StockSummary | null>(null)
   const [chartData, setChartData] = useState<StockPriceDaily[]>([])
   const [financials] = useState<Record<string, unknown> | null>(null)
-  const [indicators] = useState<Record<string, unknown> | null>(null)
+  const [indicators, setIndicators] = useState<StockInvestmentIndicators | null>(null)
   const [dividends] = useState<Record<string, unknown>[]>([])
   const [period, setPeriod] = useState<StockChartPeriod>('daily')
   const [loading, setLoading] = useState(true)
@@ -193,17 +237,20 @@ export function useStockDetailData(ticker?: string) {
     setLoading(true)
     setStock(null)
     setSummary(null)
+    setIndicators(null)
 
     resolve_stock(ticker)
       .then(async ({ requestedTicker, stock }) => {
-        const [summaryRes, priceRes] = await Promise.all([
+        const [summaryRes, priceRes, indicatorsRes] = await Promise.all([
           api_get_stock_summary(requestedTicker).catch(() => ({ data: null })),
           api_get_stock_latest_price(requestedTicker).catch(() => ({ data: null })),
+          api_get_stock_indicators(requestedTicker).catch(() => ({ data: null })),
         ])
         if (cancelled) return
         setActiveTicker(requestedTicker)
         setStock(stock)
         setSummary(normalize_summary(summaryRes.data, priceRes.data))
+        setIndicators(indicatorsRes.data)
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -212,6 +259,39 @@ export function useStockDetailData(ticker?: string) {
       cancelled = true
     }
   }, [ticker])
+
+  useEffect(() => {
+    if (!activeTicker) return
+
+    void api_subscribe_stock_realtime([activeTicker]).catch(() => undefined)
+
+    const updateRealtimePrice = async () => {
+      try {
+        const { data } = await api_get_stock_latest_price(activeTicker)
+        const realtimePayload = unwrap_payload(data)
+
+        setSummary((prev) => ({
+          ...(prev ?? {}),
+          ...realtimePayload,
+          ticker: activeTicker,
+        }) as StockSummary)
+        setChartData((prev) =>
+          merge_realtime_price_into_chart(prev, realtimePayload),
+        )
+      } catch {
+        // 실시간 가격이 아직 캐시에 없으면 기존 상세 정보를 유지합니다.
+      }
+    }
+
+    void updateRealtimePrice()
+    const timer = window.setInterval(() => {
+      void updateRealtimePrice()
+    }, 5000)
+
+    return () => {
+      window.clearInterval(timer)
+    }
+  }, [activeTicker])
 
   const loadTradingSnapshot = useCallback(() => {
     Promise.allSettled([

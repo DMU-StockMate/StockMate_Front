@@ -20,7 +20,6 @@ import MyPage from './pages/MyPage'
 import ProfileEditPage from './pages/ProfileEditPage'
 import NewsPage from './pages/NewsPage'
 import RankingPage from './pages/RankingPage'
-import AdminLoginPage from './pages/admin/AdminLoginPage'
 import AdminDashboardPage from './pages/admin/AdminDashboardPage'
 import AdminUsersPage from './pages/admin/AdminUsersPage'
 import AdminStocksPage from './pages/admin/AdminStocksPage'
@@ -54,8 +53,8 @@ export default function App() {
         </Route>
 
         {/* 관리자 페이지 */}
-        <Route path="/admin" element={<AdminLoginPage />} />
         <Route element={<AdminRoute />}>
+          <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
           <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
           <Route path="/admin/users" element={<AdminUsersPage />} />
           <Route path="/admin/stocks" element={<AdminStocksPage />} />

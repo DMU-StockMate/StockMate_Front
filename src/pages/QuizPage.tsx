@@ -1,347 +1,369 @@
-import { useState, useEffect } from 'react'
+import { useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import AppLayout from '../components/layout/AppLayout'
 import Card from '../components/common/Card'
 import Button from '../components/common/Button'
 import Progress from '../components/common/Progress'
 import Chip, { ChipRow } from '../components/common/Chip'
-import {
-  api_get_question,
-  api_submit_answer,
-  api_add_bookmark,
-  api_delete_bookmark,
-  type QuizQuestion,
-  type SubmitAnswerResponse,
-} from '../api/learning'
 
-interface LocalQuizQuestion {
+type QuizType = 'multiple' | 'ox'
+type AiRole = 'assistant' | 'user'
+
+interface MockQuizQuestion {
+  id: number
+  type: QuizType
   question: string
   options: string[]
   correctIndex: number
   tag: string
-  difficulty: string
+  difficulty: '쉬움' | '보통'
   reward: number
-  total: number
-  explanation: { label: string; text: string }[]
+  explanation: string
 }
 
-const QUIZ_DB: Record<string, Record<string, LocalQuizQuestion>> = {
-  'basic-terms': {
-    '13': {
-      question: 'EBITDA(Earnings Before Interest, Taxes, Depreciation, and Amortization)는\n다음 중 무엇을 의미합니까?',
-      options: [
-        '이자 비용을 차감한 순이익',
-        '이자, 세금, 감가상각비 차감 전 영업이익',
-        '현금흐름표상의 영업활동 현금흐름',
-        '매출액에서 매출원가를 차감한 매출총이익',
-      ],
-      correctIndex: 1,
-      tag: '기초 용어', difficulty: '보통', reward: 800, total: 22,
-      explanation: [
-        { label: '핵심', text: 'EBITDA는 영업이익에서 이자·세금·감가상각비를 더해 회사의 본질적인 현금 창출력을 가늠하는 지표입니다.' },
-        { label: '예시', text: '영업이익 100억, 감가상각비 30억이면 EBITDA는 130억. 자본 비중이 큰 산업에서 회사 간 비교에 유용합니다.' },
-        { label: '활용', text: 'EV/EBITDA 비율로 유사 기업과 가치를 비교하거나, 부채가 많은 회사의 실질 수익력을 가늠할 때 쓰입니다.' },
-      ],
-    },
-    '1': {
-      question: 'PER(Price-Earnings Ratio)이 의미하는 것은 무엇입니까?',
-      options: [
-        '주가를 주당순이익(EPS)으로 나눈 비율',
-        '주가를 주당순자산(BPS)으로 나눈 비율',
-        '영업이익을 매출액으로 나눈 비율',
-        '당기순이익을 자기자본으로 나눈 비율',
-      ],
-      correctIndex: 0,
-      tag: '기초 용어', difficulty: '쉬움', reward: 500, total: 22,
-      explanation: [
-        { label: '핵심', text: 'PER(주가수익비율)은 현재 주가가 주당순이익의 몇 배인지를 나타냅니다.' },
-        { label: '예시', text: '주가 50,000원, EPS 5,000원이면 PER = 10배.' },
-        { label: '주의', text: 'PER이 낮다고 무조건 저평가가 아닙니다.' },
-      ],
-    },
-    '14': {
-      question: '자본잠식이란 어떤 상태를 의미합니까?',
-      options: [
-        '기업의 부채가 자산을 초과한 상태',
-        '누적 결손금이 자본금보다 커져 자기자본이 줄어든 상태',
-        '매출 성장률이 마이너스인 상태',
-        '현금흐름이 마이너스인 상태',
-      ],
-      correctIndex: 1,
-      tag: '기초 용어', difficulty: '보통', reward: 800, total: 22,
-      explanation: [
-        { label: '핵심', text: '자본잠식은 기업의 누적 결손금이 자본금을 초과해 자기자본이 감소하는 현상입니다.' },
-        { label: '예시', text: '자본금 100억인데 누적 결손금 120억이면 자기자본은 -20억으로 완전자본잠식 상태.' },
-        { label: '활용', text: '재무제표에서 자기자본 항목을 확인하고, 자본잠식 기업은 투자 전 경영 정상화 계획을 반드시 확인하세요.' },
-      ],
-    },
-  },
-  'chart-basics': {
-    '4': {
-      question: '주가 차트에서 골든크로스(Golden Cross)가 발생했을 때 일반적으로 의미하는 것은?',
-      options: [
-        '단기 이동평균선이 장기 이동평균선 아래로 하향 돌파',
-        '단기 이동평균선이 장기 이동평균선 위로 상향 돌파',
-        '주가가 볼린저밴드 상단을 돌파',
-        'RSI 지수가 70을 초과',
-      ],
-      correctIndex: 1,
-      tag: '차트 기초', difficulty: '쉬움', reward: 500, total: 18,
-      explanation: [
-        { label: '핵심', text: '골든크로스는 단기 이동평균선이 장기 이동평균선을 아래에서 위로 돌파하는 현상입니다.' },
-        { label: '반대', text: '데드크로스는 반대 현상으로 단기선이 장기선 아래로 내려갈 때 발생합니다.' },
-        { label: '주의', text: '이동평균선은 후행 지표이므로 추가 확인 지표를 함께 분석해야 합니다.' },
-      ],
-    },
-  },
+interface AiMessage {
+  id: number
+  role: AiRole
+  text: string
 }
 
-const FALLBACK_QUIZ: LocalQuizQuestion = {
-  question: '다음 중 올바른 설명을 고르세요.',
-  options: ['보기 1', '보기 2', '보기 3', '보기 4'],
-  correctIndex: 0,
-  tag: '학습', difficulty: '보통', reward: 500, total: 10,
-  explanation: [
-    { label: '핵심', text: '이 문제에 대한 해설입니다.' },
-  ],
-}
+const MOCK_QUESTIONS: MockQuizQuestion[] = [
+  {
+    id: 1,
+    type: 'multiple',
+    question: 'PER(Price-Earnings Ratio)이 의미하는 것은 무엇입니까?',
+    options: [
+      '주가를 주당순이익(EPS)으로 나눈 비율',
+      '주가를 주당순자산(BPS)으로 나눈 비율',
+      '영업이익을 매출액으로 나눈 비율',
+      '당기순이익을 자기자본으로 나눈 비율',
+    ],
+    correctIndex: 0,
+    tag: '기초 용어',
+    difficulty: '쉬움',
+    reward: 500,
+    explanation: 'PER은 현재 주가가 주당순이익의 몇 배인지 보여주는 지표입니다. 예를 들어 주가가 50,000원이고 EPS가 5,000원이면 PER은 10배입니다.',
+  },
+  {
+    id: 2,
+    type: 'ox',
+    question: 'PER이 낮으면 항상 좋은 투자 대상이라고 볼 수 있다.',
+    options: ['O', 'X'],
+    correctIndex: 1,
+    tag: '기초 용어',
+    difficulty: '쉬움',
+    reward: 500,
+    explanation: 'PER이 낮아도 성장성이 낮거나 이익이 일시적으로 높아진 기업일 수 있습니다. 업종 평균, 이익의 지속성, 미래 성장성을 함께 봐야 합니다.',
+  },
+  {
+    id: 3,
+    type: 'multiple',
+    question: 'PBR(Price Book-value Ratio)을 계산할 때 사용하는 기준은 무엇입니까?',
+    options: [
+      '주가와 주당순자산(BPS)',
+      '주가와 주당순이익(EPS)',
+      '매출액과 영업이익',
+      '배당금과 시가총액',
+    ],
+    correctIndex: 0,
+    tag: '기초 용어',
+    difficulty: '쉬움',
+    reward: 500,
+    explanation: 'PBR은 주가를 주당순자산으로 나눈 값입니다. 회사가 가진 순자산 대비 시장에서 얼마에 평가되는지 볼 때 사용합니다.',
+  },
+  {
+    id: 4,
+    type: 'ox',
+    question: 'ROE는 자기자본을 활용해 얼마나 이익을 냈는지 보여주는 수익성 지표이다.',
+    options: ['O', 'X'],
+    correctIndex: 0,
+    tag: '기초 용어',
+    difficulty: '보통',
+    reward: 800,
+    explanation: 'ROE는 당기순이익을 자기자본으로 나눠 계산합니다. 같은 자본으로 더 많은 이익을 내는 기업일수록 ROE가 높게 나타납니다.',
+  },
+]
+
+const format_type = (type: QuizType) => (type === 'multiple' ? '4지선다' : 'OX')
+
+const get_ai_intro = (quiz: MockQuizQuestion) => (
+  `${quiz.id}번 문제를 같이 볼게요.\n\n` +
+  `문제: ${quiz.question}\n\n` +
+  `이 문제는 ${format_type(quiz.type)} 형식이고, 핵심은 "${quiz.tag}" 개념을 정확히 구분하는 것입니다. ` +
+  '헷갈리는 보기를 말해주면 왜 맞고 틀린지 단계별로 설명해드릴게요.'
+)
+
+const get_ai_reply = (quiz: MockQuizQuestion, message: string) => (
+  `"${message}"에 대해 설명해볼게요.\n\n` +
+  `${quiz.explanation}\n\n` +
+  `정답은 ${quiz.type === 'multiple' ? `${quiz.correctIndex + 1}번` : quiz.options[quiz.correctIndex]}입니다. ` +
+  '필요하면 비슷한 예시 문제도 만들어서 같이 연습할 수 있어요.'
+)
 
 export default function QuizPage() {
-  const { topicId = 'basic-terms', questionId = '13' } = useParams<{ topicId: string; questionId: string }>()
+  const { topicId = 'basic-terms', questionId = '1' } = useParams<{ topicId: string; questionId: string }>()
   const navigate = useNavigate()
+  const requestedQuestionId = Number.parseInt(questionId, 10)
+  const initialQuestion = MOCK_QUESTIONS.find((question) => question.id === requestedQuestionId) ?? MOCK_QUESTIONS[0]
 
-  const [apiQuestion, setApiQuestion] = useState<QuizQuestion | null>(null)
-  const [submitResult, setSubmitResult] = useState<SubmitAnswerResponse | null>(null)
-  const [apiLoading, setApiLoading] = useState(false)
+  const [quiz, setQuiz] = useState(initialQuestion)
   const [selected, setSelected] = useState<number | null>(null)
   const [submitted, setSubmitted] = useState(false)
   const [bookmarked, setBookmarked] = useState(false)
-  const [bookmarkLoading, setBookmarkLoading] = useState(false)
+  const [aiOpen, setAiOpen] = useState(false)
+  const [aiInput, setAiInput] = useState('')
+  const [aiMessages, setAiMessages] = useState<AiMessage[]>([
+    { id: 1, role: 'assistant', text: get_ai_intro(initialQuestion) },
+  ])
+  const nextAiMessageIdRef = useRef(2)
 
-  const qNum = parseInt(questionId, 10)
+  const progressPct = Math.round((quiz.id / MOCK_QUESTIONS.length) * 100)
+  const isCorrect = selected === quiz.correctIndex
+  const hasPrev = quiz.id > 1
+  const hasNext = quiz.id < MOCK_QUESTIONS.length
 
-  useEffect(() => {
-    if (isNaN(qNum)) return
-    setApiLoading(true)
+  const sync_question = (nextQuiz: MockQuizQuestion) => {
+    setQuiz(nextQuiz)
     setSelected(null)
     setSubmitted(false)
-    setSubmitResult(null)
-    api_get_question(qNum)
-      .then(({ data }) => setApiQuestion(data))
-      .catch(() => setApiQuestion(null))
-      .finally(() => setApiLoading(false))
-  }, [questionId])
-
-  const localQuiz = QUIZ_DB[topicId]?.[questionId] ?? FALLBACK_QUIZ
-
-  const isApiMode = apiQuestion !== null
-
-  const questionText = isApiMode ? apiQuestion.question_text : localQuiz.question
-  const options = isApiMode
-    ? apiQuestion.choices.sort((a, b) => a.choice_no - b.choice_no).map((c) => c.choice_text)
-    : localQuiz.options
-  const reward = isApiMode ? apiQuestion.reward_cash : localQuiz.reward
-  const total = localQuiz.total
-
-  const progressPct = Math.round((qNum / total) * 100)
-
-  const isCorrect = isApiMode
-    ? submitResult?.correct ?? false
-    : selected === localQuiz.correctIndex
-
-  const handle_submit = async () => {
-    if (selected === null) return
-    if (isApiMode) {
-      const choice = apiQuestion.choices.sort((a, b) => a.choice_no - b.choice_no)[selected]
-      try {
-        const { data } = await api_submit_answer(apiQuestion.question_id, choice.choice_id)
-        setSubmitResult(data)
-        setSubmitted(true)
-      } catch {
-        setSubmitted(true)
-      }
-    } else {
-      setSubmitted(true)
-    }
+    setAiOpen(false)
+    setAiInput('')
+    setAiMessages([{ id: nextAiMessageIdRef.current, role: 'assistant', text: get_ai_intro(nextQuiz) }])
+    nextAiMessageIdRef.current += 1
   }
 
   const handle_next = () => {
-    const nextId = qNum + 1
-    if (nextId <= total) {
-      navigate(`/learn/quiz/${topicId}/${nextId}`)
-    } else {
-      navigate(`/learn/beginner/${topicId}`)
+    const nextQuiz = MOCK_QUESTIONS.find((question) => question.id === quiz.id + 1)
+    if (nextQuiz) {
+      sync_question(nextQuiz)
+      navigate(`/learn/quiz/${topicId}/${nextQuiz.id}`)
+      return
     }
+    navigate(`/learn/beginner/${topicId}`)
   }
 
-  const handle_bookmark = async () => {
-    if (!isApiMode || bookmarkLoading) return
-    setBookmarkLoading(true)
-    try {
-      if (bookmarked) {
-        await api_delete_bookmark(apiQuestion.question_id)
-        setBookmarked(false)
-      } else {
-        await api_add_bookmark(apiQuestion.question_id)
-        setBookmarked(true)
-      }
-    } catch {
-      // 이미 북마크된 경우 등 무시
-    } finally {
-      setBookmarkLoading(false)
-    }
+  const handle_prev = () => {
+    const prevQuiz = MOCK_QUESTIONS.find((question) => question.id === quiz.id - 1)
+    if (!prevQuiz) return
+    sync_question(prevQuiz)
+    navigate(`/learn/quiz/${topicId}/${prevQuiz.id}`)
   }
 
-  const explanationBlocks: { label: string; text: string }[] = (() => {
-    if (isApiMode && submitted) {
-      const text = submitResult?.explanation ?? apiQuestion?.explanation ?? ''
-      return text ? [{ label: '해설', text }] : []
-    }
-    return submitted ? localQuiz.explanation : []
-  })()
+  const handle_ai_open = () => {
+    setAiOpen(true)
+  }
 
-  if (apiLoading) {
-    return (
-      <AppLayout topbarPlaceholder="학습 검색">
-        <div style={{ maxWidth: 720, margin: '0 auto', textAlign: 'center', padding: 80, color: 'var(--t2)' }}>
-          문제를 불러오는 중...
-        </div>
-      </AppLayout>
-    )
+  const send_ai_message = (text: string) => {
+    const value = text.trim()
+    if (!value) return
+
+    const userMessage: AiMessage = { id: nextAiMessageIdRef.current, role: 'user', text: value }
+    nextAiMessageIdRef.current += 1
+    const assistantMessage: AiMessage = { id: nextAiMessageIdRef.current, role: 'assistant', text: get_ai_reply(quiz, value) }
+    nextAiMessageIdRef.current += 1
+
+    setAiMessages((prev) => [...prev, userMessage, assistantMessage])
+    setAiInput('')
+  }
+
+  const handle_ai_key_down = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      send_ai_message(aiInput)
+    }
   }
 
   return (
     <AppLayout topbarPlaceholder="학습 검색">
-      <div style={{ maxWidth: 720, margin: '0 auto' }}>
-        <div className="breadcrumb">
-          <span className="bc-link" onClick={() => navigate('/learn')}>투자학습</span>
-          <span className="bc-sep">›</span>
-          <span className="bc-link" onClick={() => navigate('/learn/beginner')}>초급</span>
-          <span className="bc-sep">›</span>
-          <span className="bc-link" onClick={() => navigate(`/learn/beginner/${topicId}`)}>{localQuiz.tag}</span>
-          <span className="bc-sep">›</span>
-          <span className="bc-current">Q{questionId}</span>
-        </div>
-
-        <div className="row" style={{ marginBottom: 20 }}>
-          <button
-            onClick={() => navigate(`/learn/beginner/${topicId}`)}
-            style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--border)', cursor: 'pointer', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-          >
-            <i className="bi bi-x-lg" />
-          </button>
-          <div style={{ flex: 1, margin: '0 24px' }}>
-            <div className="row" style={{ marginBottom: 8, fontSize: 13, color: 'var(--t2)' }}>
-              <span>Q{questionId} / {total}</span>
-              <span>{progressPct}%</span>
-            </div>
-            <Progress value={progressPct} />
+      <div className={`quiz-study-shell ${aiOpen ? 'with-ai' : ''}`}>
+        <section className="quiz-study-main">
+          <div className="breadcrumb">
+            <span className="bc-link" onClick={() => navigate('/learn')}>투자학습</span>
+            <span className="bc-sep">›</span>
+            <span className="bc-link" onClick={() => navigate('/learn/beginner')}>초급</span>
+            <span className="bc-sep">›</span>
+            <span className="bc-link" onClick={() => navigate(`/learn/beginner/${topicId}`)}>기초 용어</span>
+            <span className="bc-sep">›</span>
+            <span className="bc-current">Q{quiz.id}</span>
           </div>
-          <button
-            onClick={handle_bookmark}
-            style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--border)', cursor: isApiMode ? 'pointer' : 'default', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: bookmarkLoading ? 0.5 : 1 }}
-          >
-            <i className={`bi ${bookmarked ? 'bi-heart-fill' : 'bi-heart'}`} style={{ color: bookmarked ? 'var(--up)' : undefined }} />
-          </button>
-        </div>
 
-        {submitted && (
-          <div className={`result-banner ${isCorrect ? 'correct' : 'wrong'}`} style={{ marginBottom: 20 }}>
-            <div className="icon-circle">
-              <i className={`bi ${isCorrect ? 'bi-check-lg' : 'bi-x-lg'}`} />
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 20, fontWeight: 800 }}>
-                {isCorrect ? '정답입니다!' : '오답입니다.'}
-              </div>
-              <div style={{ marginTop: 4 }}>
-                {isCorrect
-                  ? `+${(submitResult?.reward ?? reward).toLocaleString()}원 획득`
-                  : '다음엔 해설을 참고해 다시 도전해보세요!'}
-              </div>
-            </div>
-          </div>
-        )}
-
-        <Card className="card-lg">
-          <ChipRow style={{ marginBottom: 20 }}>
-            <Chip active>{localQuiz.tag}</Chip>
-            <Chip>난이도 · {localQuiz.difficulty}</Chip>
-            <span
-              className="chip"
-              style={{ marginLeft: 'auto', background: 'var(--primary-light)', color: 'var(--primary)', borderColor: 'transparent' }}
+          <div className="quiz-top-row">
+            <button
+              className="quiz-icon-button"
+              onClick={() => navigate(`/learn/beginner/${topicId}`)}
+              aria-label="문제 나가기"
             >
-              +{reward.toLocaleString()}원
-            </span>
-          </ChipRow>
-
-          <h2 style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.5, marginBottom: 28 }}>
-            {questionText.split('\n').map((line, i) => <span key={i}>{line}<br /></span>)}
-          </h2>
-
-          {options.map((opt, i) => {
-            let cls = 'opt'
-            if (submitted) {
-              if (isApiMode) {
-                const sortedChoices = apiQuestion!.choices.sort((a, b) => a.choice_no - b.choice_no)
-                if (sortedChoices[i]?.is_correct) cls += ' correct'
-                else if (i === selected) cls += ' wrong'
-              } else {
-                if (i === localQuiz.correctIndex) cls += ' correct'
-                else if (i === selected) cls += ' wrong'
-              }
-            } else if (i === selected) {
-              cls += ' selected'
-            }
-            return (
-              <div
-                key={i}
-                className={cls}
-                onClick={() => !submitted && setSelected(i)}
-              >
-                <div className="num">{i + 1}</div>
-                {opt}
+              <i className="bi bi-x-lg" />
+            </button>
+            <div className="quiz-progress-wrap">
+              <div className="row" style={{ marginBottom: 8, fontSize: 13, color: 'var(--t2)' }}>
+                <span>초급 기초 용어 · Q{quiz.id} / {MOCK_QUESTIONS.length}</span>
+                <span>{progressPct}%</span>
               </div>
-            )
-          })}
+              <Progress value={progressPct} />
+            </div>
+            <button
+              className="quiz-icon-button"
+              onClick={() => setBookmarked((prev) => !prev)}
+              aria-label="문제 찜하기"
+            >
+              <i className={`bi ${bookmarked ? 'bi-heart-fill' : 'bi-heart'}`} style={{ color: bookmarked ? 'var(--up)' : undefined }} />
+            </button>
+          </div>
 
-          {!submitted ? (
-            <div className="row" style={{ marginTop: 24 }}>
-              <Button variant="outline">건너뛰기</Button>
-              <Button size="lg" style={{ minWidth: 200 }} onClick={handle_submit} disabled={selected === null}>
-                제출하기
+          {submitted && (
+            <div className={`result-banner ${isCorrect ? 'correct' : 'wrong'}`} style={{ marginBottom: 18 }}>
+              <div className="icon-circle">
+                <i className={`bi ${isCorrect ? 'bi-check-lg' : 'bi-x-lg'}`} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 20, fontWeight: 800 }}>{isCorrect ? '정답입니다!' : '오답입니다.'}</div>
+                <div style={{ marginTop: 4 }}>
+                  {isCorrect ? `+${quiz.reward.toLocaleString()}원 획득` : 'AI 설명으로 헷갈린 개념을 바로 확인해보세요.'}
+                </div>
+              </div>
+              <Button variant="outline" onClick={handle_ai_open}>
+                <i className="bi bi-stars" />
+                AI 설명
               </Button>
             </div>
-          ) : (
-            <>
-              {explanationBlocks.length > 0 && (
-                <div style={{ marginTop: 24 }}>
-                  <div className="row" style={{ marginBottom: 14 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span className="pill">AI 해설</span>
-                      <span className="muted" style={{ fontSize: 12 }}>Claude가 제공</span>
-                    </div>
-                  </div>
-                  {explanationBlocks.map((block) => (
-                    <div key={block.label} className="ai-block">
-                      <span className="ai-tag">{block.label}</span>
-                      <span style={{ fontSize: 14, lineHeight: 1.6 }}>{block.text}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="row" style={{ marginTop: 24 }}>
-                <Button variant="outline" onClick={() => navigate(`/learn/beginner/${topicId}`)}>
-                  대주제로 돌아가기
-                </Button>
-                <Button size="lg" style={{ minWidth: 200 }} onClick={handle_next}>
-                  다음 문제 →
-                </Button>
-              </div>
-            </>
           )}
-        </Card>
+
+          <Card className="card-lg quiz-question-card">
+            <ChipRow style={{ marginBottom: 20 }}>
+              <Chip active>{quiz.tag}</Chip>
+              <Chip>{format_type(quiz.type)}</Chip>
+              <Chip>난이도 · {quiz.difficulty}</Chip>
+              <span
+                className="chip"
+                style={{ marginLeft: 'auto', background: 'var(--primary-light)', color: 'var(--primary)', borderColor: 'transparent' }}
+              >
+                +{quiz.reward.toLocaleString()}원
+              </span>
+            </ChipRow>
+
+            <div className="quiz-type-label">{format_type(quiz.type)} 문제</div>
+            <h2 className="quiz-question-title">{quiz.question}</h2>
+
+            <div className={quiz.type === 'ox' ? 'quiz-ox-options' : ''}>
+              {quiz.options.map((option, index) => {
+                let optionClass = 'opt'
+                if (submitted) {
+                  if (index === quiz.correctIndex) optionClass += ' correct'
+                  else if (index === selected) optionClass += ' wrong'
+                } else if (index === selected) {
+                  optionClass += ' selected'
+                }
+
+                return (
+                  <button
+                    key={option}
+                    className={optionClass}
+                    onClick={() => !submitted && setSelected(index)}
+                    disabled={submitted}
+                  >
+                    <span className="num">{quiz.type === 'ox' ? option : index + 1}</span>
+                    <span>{option}</span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {!submitted ? (
+              <div className="quiz-bottom-actions">
+                <div className="quiz-step-nav">
+                  <button onClick={handle_prev} disabled={!hasPrev}>
+                    <i className="bi bi-chevron-left" />
+                    이전
+                  </button>
+                  <button onClick={handle_next} disabled={!hasNext}>
+                    다음
+                    <i className="bi bi-chevron-right" />
+                  </button>
+                </div>
+                <div className="quiz-submit-actions">
+                  <Button variant="outline" onClick={handle_ai_open}>
+                    <i className="bi bi-stars" />
+                    AI 설명
+                  </Button>
+                  <Button size="lg" style={{ minWidth: 200 }} onClick={() => setSubmitted(true)} disabled={selected === null}>
+                    제출하기
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="ai-block" style={{ marginTop: 24 }}>
+                  <span className="ai-tag">해설</span>
+                  <span style={{ fontSize: 14, lineHeight: 1.6 }}>{quiz.explanation}</span>
+                </div>
+
+                <div className="quiz-bottom-actions">
+                  <div className="quiz-step-nav">
+                    <button onClick={handle_prev} disabled={!hasPrev}>
+                      <i className="bi bi-chevron-left" />
+                      이전
+                    </button>
+                    <button onClick={handle_next}>
+                      {quiz.id === MOCK_QUESTIONS.length ? '완료' : '다음'}
+                      <i className="bi bi-chevron-right" />
+                    </button>
+                  </div>
+                  <div className="quiz-submit-actions">
+                    <Button variant="outline" onClick={handle_ai_open}>
+                      <i className="bi bi-stars" />
+                      AI 설명
+                    </Button>
+                    <Button size="lg" style={{ minWidth: 200 }} onClick={handle_next}>
+                      {quiz.id === MOCK_QUESTIONS.length ? '완료하기' : '다음 문제'}
+                      <i className="bi bi-arrow-right" />
+                    </Button>
+                  </div>
+                </div>
+              </>
+            )}
+          </Card>
+        </section>
+
+        <aside className={`quiz-ai-panel ${aiOpen ? 'open' : ''}`} aria-label="문제 AI 설명 채팅" aria-hidden={!aiOpen}>
+          <header className="quiz-ai-header">
+            <div>
+              <div className="quiz-ai-title">AI 설명</div>
+              <div className="quiz-ai-sub">Q{quiz.id} · {format_type(quiz.type)}</div>
+            </div>
+            <button onClick={() => setAiOpen(false)} aria-label="AI 설명 닫기">
+              <i className="bi bi-x-lg" />
+            </button>
+          </header>
+
+          <div className="quiz-ai-context">
+            <span className="pill">문제 맥락</span>
+            <p>{quiz.question}</p>
+          </div>
+
+          <div className="quiz-ai-messages">
+            {aiMessages.map((message) => (
+              <div key={message.id} className={`quiz-ai-message ${message.role}`}>
+                {message.text.split('\n').map((line, index) => (
+                  <span key={`${message.id}-${index}`}>{line || '\u00A0'}</span>
+                ))}
+              </div>
+            ))}
+          </div>
+
+          <footer className="quiz-ai-composer">
+            <textarea
+              value={aiInput}
+              onChange={(e) => setAiInput(e.target.value)}
+              onKeyDown={handle_ai_key_down}
+              placeholder="이 문제에 대해 질문하기"
+              rows={2}
+            />
+            <button onClick={() => send_ai_message(aiInput)} aria-label="AI에게 보내기">
+              <i className="bi bi-send-fill" />
+            </button>
+          </footer>
+        </aside>
       </div>
     </AppLayout>
   )

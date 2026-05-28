@@ -8,6 +8,11 @@ import {
   api_get_stock_rankings_volume,
   type StockRankingItem,
 } from '../api/stocks'
+import {
+  format_money as format_trade_money,
+  format_rate as format_trade_rate,
+  useTradeHistory,
+} from '../hooks/useTradeHistory'
 
 interface MarketStock {
   name: string
@@ -67,6 +72,11 @@ export default function TradePage() {
   const [riseStocks, setRiseStocks] = useState<MarketStock[]>([])
   const [volumeStocks, setVolumeStocks] = useState<MarketStock[]>([])
   const [loading, setLoading] = useState(true)
+  const {
+    summary,
+    loading: assetLoading,
+    trades,
+  } = useTradeHistory()
 
   useEffect(() => {
     Promise.all([
@@ -94,9 +104,16 @@ export default function TradePage() {
   const handle_close_modal = () => setModal({ open: false, mode: 'buy' })
 
   const unitPrice = modal.stock?.price ?? 0
-  const virtualCash = 5212400
+  const virtualCash = summary.cashBalance
   const totalPrice = (unitPrice * qty).toLocaleString()
-  const remaining = Math.max(0, virtualCash - unitPrice * qty).toLocaleString()
+  const remaining = (
+    modal.mode === 'buy'
+      ? Math.max(0, virtualCash - unitPrice * qty)
+      : virtualCash + unitPrice * qty
+  ).toLocaleString()
+  const today = new Date().toDateString()
+  const todayTradeCount = trades.filter((trade) => new Date(trade.createdAt).toDateString() === today).length
+  const profitText = `${summary.totalProfit >= 0 ? '+' : ''}${format_trade_money(summary.totalProfit)} (${format_trade_rate(summary.totalProfitRate)})`
 
   return (
     <AppLayout topbarPlaceholder="종목 검색">
@@ -127,9 +144,15 @@ export default function TradePage() {
           <div className="row">
             <div>
               <div className="label" style={{ opacity: 0.85 }}>평가 자산</div>
-              <div style={{ fontSize: 36, fontWeight: 800, marginTop: 8 }}>12,540,000원</div>
-              <div style={{ marginTop: 8, fontSize: 14 }}>평가손익 <b>+540,000원 (+4.50%)</b></div>
-              <div style={{ opacity: 0.85, fontSize: 12, marginTop: 4 }}>예수금 5,212,400원 · 보유 평가 1,254,000원</div>
+              <div style={{ fontSize: 36, fontWeight: 800, marginTop: 8 }}>
+                {assetLoading ? '불러오는 중' : format_trade_money(summary.totalAsset)}
+              </div>
+              <div style={{ marginTop: 8, fontSize: 14 }}>
+                평가손익 <b>{assetLoading ? '-' : profitText}</b>
+              </div>
+              <div style={{ opacity: 0.85, fontSize: 12, marginTop: 4 }}>
+                예수금 {format_trade_money(summary.cashBalance)} · 보유 평가 {format_trade_money(summary.stockValue)} · 보유 {summary.holdingCount.toLocaleString()}종목
+              </div>
             </div>
             <div style={{ width: 240, height: 80 }}>
               <svg viewBox="0 0 240 80" preserveAspectRatio="none" style={{ width: '100%', height: '100%' }}>
@@ -139,7 +162,9 @@ export default function TradePage() {
             </div>
           </div>
           <div className="row" style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.18)' }}>
-            <span style={{ fontSize: 12, opacity: 0.85 }}>오늘 거래 2건 · 자산 변화 +124,500원</span>
+            <span style={{ fontSize: 12, opacity: 0.85 }}>
+              오늘 거래 {todayTradeCount.toLocaleString()}건 · 최근 거래 {summary.tradeCount.toLocaleString()}건
+            </span>
             <span
               style={{ fontSize: 12, cursor: 'pointer', textDecoration: 'underline' }}
               onClick={() => navigate('/trade/history')}
@@ -150,27 +175,17 @@ export default function TradePage() {
         </Card>
 
         <div>
-          <div className="section-title" style={{ marginBottom: 12, fontSize: 14 }}>빠른 액션</div>
-          <div className="action-grid">
-            <div className="action-card up" onClick={() => handle_open_modal('buy')}>
-              <div className="ac-ico">↗</div>
-              <div className="ac-name">매수</div>
-              <div className="ac-desc">새 종목 매수</div>
-            </div>
-            <div className="action-card down" onClick={() => handle_open_modal('sell')}>
-              <div className="ac-ico">↘</div>
-              <div className="ac-name">매도</div>
-              <div className="ac-desc">보유 종목 매도</div>
-            </div>
-            <div className="action-card" onClick={() => navigate('/trade/stocks')}>
+          <div className="section-title" style={{ marginBottom: 12, fontSize: 14 }}>투자 바로가기</div>
+          <div className="action-grid" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
+            <div className="action-card" style={{ minHeight: 154, justifyContent: 'center' }} onClick={() => navigate('/trade/stocks')}>
               <div className="ac-ico"><i className="bi bi-search" /></div>
               <div className="ac-name">종목 둘러보기</div>
-              <div className="ac-desc">전체 종목 탐색</div>
+              <div className="ac-desc">관심 종목을 찾고 주문하기</div>
             </div>
-            <div className="action-card" onClick={() => navigate('/trade/history')}>
+            <div className="action-card" style={{ minHeight: 154, justifyContent: 'center' }} onClick={() => navigate('/trade/history')}>
               <div className="ac-ico"><i className="bi bi-clipboard-data" /></div>
               <div className="ac-name">투자 내역</div>
-              <div className="ac-desc">기록 + AI 피드백</div>
+              <div className="ac-desc">보유 현황과 거래 기록 확인</div>
             </div>
           </div>
         </div>

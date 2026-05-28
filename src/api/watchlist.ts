@@ -49,3 +49,12 @@ export const api_check_watchlist = (stockCode: string) =>
 
 export const api_delete_watchlist = (watchlistId: string) =>
   api.delete(`/watchlist/${watchlistId}`)
+
+export const api_subscribe_watchlist_realtime = (watchlistId: string) =>
+  api.post(`/watchlist/${watchlistId}/realtime/subscribe`)
+
+export const api_unsubscribe_watchlist_realtime = (watchlistId: string) =>
+  api.post(`/watchlist/${watchlistId}/realtime/unsubscribe`)
+
+export const api_get_watchlist_realtime_price = (watchlistId: string) =>
+  api.get(`/watchlist/${watchlistId}/realtime/price`)

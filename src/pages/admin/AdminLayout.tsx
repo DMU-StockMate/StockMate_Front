@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { useAdminAuth } from '../../context/AdminAuthContext'
+import { useAuth } from '../../hooks/useAuth'
 
 interface AdminLayoutProps {
   children: ReactNode
@@ -14,12 +14,12 @@ const NAV_ITEMS = [
 ]
 
 export default function AdminLayout({ children, title }: AdminLayoutProps) {
-  const { adminUser, adminLogout } = useAdminAuth()
+  const { user, logout } = useAuth()
   const navigate = useNavigate()
 
   const handle_logout = () => {
-    adminLogout()
-    navigate('/admin')
+    logout()
+    navigate('/login')
   }
 
   return (
@@ -30,10 +30,15 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
         borderRight: '1px solid var(--border)',
         display: 'flex', flexDirection: 'column', flexShrink: 0,
       }}>
-        <div style={{
-          height: 64, display: 'flex', alignItems: 'center', gap: 10,
-          padding: '0 24px', borderBottom: '1px solid var(--border)',
-        }}>
+        <div
+          onClick={() => navigate('/dashboard')}
+          style={{
+            height: 64, display: 'flex', alignItems: 'center', gap: 10,
+            padding: '0 24px', borderBottom: '1px solid var(--border)',
+            cursor: 'pointer',
+          }}
+          title="홈으로 이동"
+        >
           <div style={{
             width: 32, height: 32, borderRadius: 9, background: 'var(--gradient)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -45,7 +50,22 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
           </div>
         </div>
 
-        <nav style={{ padding: '16px 12px', display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
+        <div style={{ padding: '12px' }}>
+          <button
+            onClick={() => navigate('/dashboard')}
+            style={{
+              width: '100%', height: 36, display: 'flex', alignItems: 'center', gap: 8,
+              padding: '0 12px', borderRadius: 8, border: '1px solid var(--border)',
+              background: '#fff', color: 'var(--t2)', fontSize: 12, fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            <i className="bi bi-arrow-left" />
+            사용자 화면
+          </button>
+        </div>
+
+        <nav style={{ padding: '4px 12px 16px', display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
           {NAV_ITEMS.map((item) => (
             <NavLink
               key={item.path}
@@ -67,8 +87,8 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
 
         <div style={{ padding: '16px 12px', borderTop: '1px solid var(--border)' }}>
           <div style={{ padding: '0 14px 12px', fontSize: 12, color: 'var(--t2)' }}>
-            <div style={{ fontWeight: 600, color: 'var(--t1)', marginBottom: 2 }}>{adminUser?.name}</div>
-            <div>{adminUser?.email}</div>
+            <div style={{ fontWeight: 600, color: 'var(--t1)', marginBottom: 2 }}>{user?.name}</div>
+            <div>{user?.email}</div>
           </div>
           <button
             onClick={handle_logout}
@@ -95,7 +115,8 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
             {title ?? 'StockMate 관리자'}
           </h1>
           <div style={{
-            marginLeft: 'auto', fontSize: 12, padding: '4px 10px',
+            marginLeft: 'auto',
+            fontSize: 12, padding: '4px 10px',
             borderRadius: 20, background: 'var(--primary-light)', color: 'var(--primary)', fontWeight: 600,
           }}>
             ADMIN
