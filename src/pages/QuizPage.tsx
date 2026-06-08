@@ -1,24 +1,35 @@
-import { useRef, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import AppLayout from '../components/layout/AppLayout'
 import Card from '../components/common/Card'
 import Button from '../components/common/Button'
 import Progress from '../components/common/Progress'
 import Chip, { ChipRow } from '../components/common/Chip'
+import {
+  api_add_bookmark,
+  api_delete_bookmark,
+  api_get_bookmarks,
+  api_get_question,
+  api_get_questions,
+  api_submit_answer,
+  type QuizChoice,
+} from '../api/learning'
+import { api_stream_chat_session, api_stream_question_chat } from '../api/ai'
 
 type QuizType = 'multiple' | 'ox'
 type AiRole = 'assistant' | 'user'
 
-interface MockQuizQuestion {
+interface QuizItem {
   id: number
   type: QuizType
   question: string
   options: string[]
+  choiceIds: number[]
   correctIndex: number
   tag: string
-  difficulty: '쉬움' | '보통'
+  difficulty: '쉬움' | '보통' | '어려움'
   reward: number
-  explanation: string
+  explanation: string | null
 }
 
 interface AiMessage {
@@ -27,113 +38,177 @@ interface AiMessage {
   text: string
 }
 
-const MOCK_QUESTIONS: MockQuizQuestion[] = [
-  {
-    id: 1,
-    type: 'multiple',
-    question: 'PER(Price-Earnings Ratio)이 의미하는 것은 무엇입니까?',
-    options: [
-      '주가를 주당순이익(EPS)으로 나눈 비율',
-      '주가를 주당순자산(BPS)으로 나눈 비율',
-      '영업이익을 매출액으로 나눈 비율',
-      '당기순이익을 자기자본으로 나눈 비율',
-    ],
-    correctIndex: 0,
-    tag: '기초 용어',
-    difficulty: '쉬움',
-    reward: 500,
-    explanation: 'PER은 현재 주가가 주당순이익의 몇 배인지 보여주는 지표입니다. 예를 들어 주가가 50,000원이고 EPS가 5,000원이면 PER은 10배입니다.',
-  },
-  {
-    id: 2,
-    type: 'ox',
-    question: 'PER이 낮으면 항상 좋은 투자 대상이라고 볼 수 있다.',
-    options: ['O', 'X'],
-    correctIndex: 1,
-    tag: '기초 용어',
-    difficulty: '쉬움',
-    reward: 500,
-    explanation: 'PER이 낮아도 성장성이 낮거나 이익이 일시적으로 높아진 기업일 수 있습니다. 업종 평균, 이익의 지속성, 미래 성장성을 함께 봐야 합니다.',
-  },
-  {
-    id: 3,
-    type: 'multiple',
-    question: 'PBR(Price Book-value Ratio)을 계산할 때 사용하는 기준은 무엇입니까?',
-    options: [
-      '주가와 주당순자산(BPS)',
-      '주가와 주당순이익(EPS)',
-      '매출액과 영업이익',
-      '배당금과 시가총액',
-    ],
-    correctIndex: 0,
-    tag: '기초 용어',
-    difficulty: '쉬움',
-    reward: 500,
-    explanation: 'PBR은 주가를 주당순자산으로 나눈 값입니다. 회사가 가진 순자산 대비 시장에서 얼마에 평가되는지 볼 때 사용합니다.',
-  },
-  {
-    id: 4,
-    type: 'ox',
-    question: 'ROE는 자기자본을 활용해 얼마나 이익을 냈는지 보여주는 수익성 지표이다.',
-    options: ['O', 'X'],
-    correctIndex: 0,
-    tag: '기초 용어',
-    difficulty: '보통',
-    reward: 800,
-    explanation: 'ROE는 당기순이익을 자기자본으로 나눠 계산합니다. 같은 자본으로 더 많은 이익을 내는 기업일수록 ROE가 높게 나타납니다.',
-  },
-]
-
 const format_type = (type: QuizType) => (type === 'multiple' ? '4지선다' : 'OX')
 
-const get_ai_intro = (quiz: MockQuizQuestion) => (
-  `${quiz.id}번 문제를 같이 볼게요.\n\n` +
-  `문제: ${quiz.question}\n\n` +
-  `이 문제는 ${format_type(quiz.type)} 형식이고, 핵심은 "${quiz.tag}" 개념을 정확히 구분하는 것입니다. ` +
-  '헷갈리는 보기를 말해주면 왜 맞고 틀린지 단계별로 설명해드릴게요.'
+const as_record = (value: unknown) => (
+  value && typeof value === 'object' ? value as Record<string, unknown> : {}
 )
 
-const get_ai_reply = (quiz: MockQuizQuestion, message: string) => (
-  `"${message}"에 대해 설명해볼게요.\n\n` +
-  `${quiz.explanation}\n\n` +
-  `정답은 ${quiz.type === 'multiple' ? `${quiz.correctIndex + 1}번` : quiz.options[quiz.correctIndex]}입니다. ` +
-  '필요하면 비슷한 예시 문제도 만들어서 같이 연습할 수 있어요.'
+const get_question_id = (raw: unknown) => {
+  const item = as_record(raw)
+  return Number(item.question_id ?? item.questionId ?? 0)
+}
+
+const get_choice_id = (choice: QuizChoice, index: number) => (
+  Number(choice.choice_id ?? choice.choiceId ?? choice.id ?? index + 1)
+)
+
+const get_question_array = (raw: unknown): unknown[] => {
+  if (Array.isArray(raw)) return raw
+  const item = as_record(raw)
+  const nested = item.data ?? item.items ?? item.content ?? item.questions
+  return Array.isArray(nested) ? nested : []
+}
+
+const normalize_question = (raw: unknown): QuizItem | null => {
+  const question = as_record(raw)
+  const choices = Array.isArray(question.choices) ? question.choices as QuizChoice[] : []
+  const id = get_question_id(question)
+  const questionText = String(question.question_text ?? question.questionText ?? '')
+
+  if (!id || !questionText || choices.length === 0) return null
+
+  const typeText = String(question.question_type ?? question.questionType ?? '')
+  const levelId = Number(question.investment_level_id ?? question.investmentLevelId ?? 1)
+  const correctIndex = choices.findIndex((choice) => choice.is_correct === true || choice.isCorrect === true)
+
+  return {
+    id,
+    type: typeText === 'OX' ? 'ox' : 'multiple',
+    question: questionText,
+    options: choices.map((choice, index) => String(choice.choice_text ?? choice.text ?? `선택지 ${index + 1}`)),
+    choiceIds: choices.map(get_choice_id),
+    correctIndex,
+    tag: String(question.topicName ?? question.topic ?? '투자 학습'),
+    difficulty: levelId > 2 ? '어려움' : levelId > 1 ? '보통' : '쉬움',
+    reward: Number(question.reward_cash ?? question.rewardCash ?? 0),
+    explanation: typeof question.explanation === 'string' ? question.explanation : null,
+  }
+}
+
+const get_ai_intro = (quiz: QuizItem) => (
+  `${quiz.id}번 문제를 같이 볼게요.\n\n` +
+  `문제: ${quiz.question}\n\n` +
+  `이 문제는 ${format_type(quiz.type)} 형식입니다. 헷갈리는 보기를 말해주면 문제 맥락을 기준으로 설명해드릴게요.`
 )
 
 export default function QuizPage() {
-  const { topicId = 'basic-terms', questionId = '1' } = useParams<{ topicId: string; questionId: string }>()
+  const { topicId = 'basic-terms', questionId = '' } = useParams<{ topicId: string; questionId: string }>()
   const navigate = useNavigate()
   const requestedQuestionId = Number.parseInt(questionId, 10)
-  const initialQuestion = MOCK_QUESTIONS.find((question) => question.id === requestedQuestionId) ?? MOCK_QUESTIONS[0]
 
-  const [quiz, setQuiz] = useState(initialQuestion)
+  const [quiz, setQuiz] = useState<QuizItem | null>(null)
+  const [questions, setQuestions] = useState<QuizItem[]>([])
   const [selected, setSelected] = useState<number | null>(null)
   const [submitted, setSubmitted] = useState(false)
+  const [submitResult, setSubmitResult] = useState<{ correct: boolean; reward: number; explanation: string | null } | null>(null)
   const [bookmarked, setBookmarked] = useState(false)
+  const [bookmarkSaving, setBookmarkSaving] = useState(false)
   const [aiOpen, setAiOpen] = useState(false)
   const [aiInput, setAiInput] = useState('')
-  const [aiMessages, setAiMessages] = useState<AiMessage[]>([
-    { id: 1, role: 'assistant', text: get_ai_intro(initialQuestion) },
-  ])
-  const nextAiMessageIdRef = useRef(2)
+  const [aiMessages, setAiMessages] = useState<AiMessage[]>([])
+  const [aiSessionId, setAiSessionId] = useState<number | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [aiSending, setAiSending] = useState(false)
+  const nextAiMessageIdRef = useRef(1)
 
-  const progressPct = Math.round((quiz.id / MOCK_QUESTIONS.length) * 100)
-  const isCorrect = selected === quiz.correctIndex
-  const hasPrev = quiz.id > 1
-  const hasNext = quiz.id < MOCK_QUESTIONS.length
-
-  const sync_question = (nextQuiz: MockQuizQuestion) => {
+  const sync_question = (nextQuiz: QuizItem) => {
     setQuiz(nextQuiz)
     setSelected(null)
     setSubmitted(false)
+    setSubmitResult(null)
     setAiOpen(false)
     setAiInput('')
+    setAiSessionId(null)
     setAiMessages([{ id: nextAiMessageIdRef.current, role: 'assistant', text: get_ai_intro(nextQuiz) }])
     nextAiMessageIdRef.current += 1
   }
 
+  useEffect(() => {
+    let alive = true
+
+    const load_question = async () => {
+      setLoading(true)
+      setError('')
+
+      try {
+        const { data } = await api_get_questions()
+        const loaded = get_question_array(data)
+          .map(normalize_question)
+          .filter((item): item is QuizItem => item !== null)
+          .sort((a, b) => a.id - b.id)
+
+        let nextQuiz: QuizItem | null = loaded.find((question) => question.id === requestedQuestionId) ?? null
+
+        if (!nextQuiz && requestedQuestionId > 0) {
+          const detail = await api_get_question(requestedQuestionId)
+          nextQuiz = normalize_question(detail.data)
+        }
+
+        if (!alive) return
+
+        setQuestions(nextQuiz && !loaded.some((item) => item.id === nextQuiz.id)
+          ? [...loaded, nextQuiz].sort((a, b) => a.id - b.id)
+          : loaded)
+
+        if (nextQuiz) {
+          sync_question(nextQuiz)
+        } else if (loaded[0]) {
+          sync_question(loaded[0])
+          navigate(`/learn/quiz/${topicId}/${loaded[0].id}`, { replace: true })
+        } else {
+          setQuiz(null)
+          setAiMessages([])
+          setError('표시할 문제가 없습니다. AI 문제 생성 후 다시 시도해주세요.')
+        }
+      } catch {
+        if (!alive) return
+        setQuiz(null)
+        setQuestions([])
+        setAiMessages([])
+        setError('문제 API 연결에 실패했습니다. 로그인 상태와 백엔드 서버를 확인해주세요.')
+      } finally {
+        if (alive) setLoading(false)
+      }
+    }
+
+    void load_question()
+
+    return () => {
+      alive = false
+    }
+  }, [questionId, requestedQuestionId, topicId, navigate])
+
+  useEffect(() => {
+    if (!quiz) return
+
+    let alive = true
+
+    api_get_bookmarks()
+      .then(({ data }) => {
+        if (!alive) return
+        setBookmarked(data.some((bookmark) => get_question_id(bookmark.question ?? bookmark) === quiz.id))
+      })
+      .catch(() => {
+        if (alive) setBookmarked(false)
+      })
+
+    return () => {
+      alive = false
+    }
+  }, [quiz])
+
+  const currentIndex = quiz ? questions.findIndex((question) => question.id === quiz.id) : -1
+  const progressPct = Math.round(((currentIndex >= 0 ? currentIndex + 1 : 0) / Math.max(questions.length, 1)) * 100)
+  const resultCorrectIndex = quiz?.correctIndex ?? -1
+  const isCorrect = submitResult?.correct ?? false
+  const hasPrev = currentIndex > 0
+  const hasNext = currentIndex >= 0 && currentIndex < questions.length - 1
+
   const handle_next = () => {
-    const nextQuiz = MOCK_QUESTIONS.find((question) => question.id === quiz.id + 1)
+    const nextQuiz = questions[currentIndex + 1]
     if (nextQuiz) {
       sync_question(nextQuiz)
       navigate(`/learn/quiz/${topicId}/${nextQuiz.id}`)
@@ -143,34 +218,126 @@ export default function QuizPage() {
   }
 
   const handle_prev = () => {
-    const prevQuiz = MOCK_QUESTIONS.find((question) => question.id === quiz.id - 1)
+    const prevQuiz = questions[currentIndex - 1]
     if (!prevQuiz) return
     sync_question(prevQuiz)
     navigate(`/learn/quiz/${topicId}/${prevQuiz.id}`)
   }
 
-  const handle_ai_open = () => {
-    setAiOpen(true)
+  const handle_bookmark_toggle = async () => {
+    if (!quiz || bookmarkSaving) return
+    setBookmarkSaving(true)
+
+    try {
+      if (bookmarked) {
+        await api_delete_bookmark(quiz.id)
+        setBookmarked(false)
+      } else {
+        await api_add_bookmark(quiz.id)
+        setBookmarked(true)
+      }
+    } catch {
+      setError('북마크 처리에 실패했습니다. 잠시 후 다시 시도해주세요.')
+    } finally {
+      setBookmarkSaving(false)
+    }
   }
 
-  const send_ai_message = (text: string) => {
+  const handle_submit = async () => {
+    if (!quiz || selected === null) return
+    const selectedChoiceId = quiz.choiceIds[selected]
+    if (!selectedChoiceId) return
+
+    setSubmitting(true)
+    setError('')
+    try {
+      const { data } = await api_submit_answer(quiz.id, selectedChoiceId)
+      setSubmitResult({
+        correct: data.correct,
+        reward: data.reward,
+        explanation: data.explanation,
+      })
+      setSubmitted(true)
+    } catch {
+      setError('정답 제출에 실패했습니다. 잠시 후 다시 시도해주세요.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const send_ai_message = async (text: string) => {
+    if (!quiz) return
+
     const value = text.trim()
-    if (!value) return
+    if (!value || aiSending) return
 
     const userMessage: AiMessage = { id: nextAiMessageIdRef.current, role: 'user', text: value }
     nextAiMessageIdRef.current += 1
-    const assistantMessage: AiMessage = { id: nextAiMessageIdRef.current, role: 'assistant', text: get_ai_reply(quiz, value) }
+    const assistantId = nextAiMessageIdRef.current
+    const assistantMessage: AiMessage = { id: assistantId, role: 'assistant', text: '' }
     nextAiMessageIdRef.current += 1
 
     setAiMessages((prev) => [...prev, userMessage, assistantMessage])
     setAiInput('')
+    setAiSending(true)
+
+    try {
+      const onEvent = (event: { type: string; sessionId?: number; content?: string }) => {
+        if (event.type === 'session' && event.sessionId) setAiSessionId(event.sessionId)
+        if (event.type === 'done' && event.sessionId) setAiSessionId(event.sessionId)
+        if (event.type !== 'token') return
+
+        setAiMessages((prev) => prev.map((message) => (
+          message.id === assistantId
+            ? { ...message, text: `${message.text}${event.content ?? ''}` }
+            : message
+        )))
+      }
+
+      if (aiSessionId) {
+        await api_stream_chat_session(aiSessionId, value, onEvent)
+      } else {
+        await api_stream_question_chat(quiz.id, value, onEvent)
+      }
+    } catch {
+      setAiMessages((prev) => prev.map((message) => (
+        message.id === assistantId
+          ? { ...message, text: 'AI 설명 API 연결에 실패했습니다. 잠시 후 다시 시도해주세요.' }
+          : message
+      )))
+    } finally {
+      setAiSending(false)
+    }
   }
 
-  const handle_ai_key_down = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const handle_ai_key_down = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      send_ai_message(aiInput)
+      void send_ai_message(aiInput)
     }
+  }
+
+  if (!quiz) {
+    return (
+      <AppLayout topbarPlaceholder="학습 검색">
+        <div className="breadcrumb">
+          <span className="bc-link" onClick={() => navigate('/learn')}>투자학습</span>
+          <span className="bc-sep">›</span>
+          <span className="bc-current">문제</span>
+        </div>
+        <Card className="card-lg">
+          <div className="section-title">{loading ? '문제를 불러오는 중입니다.' : '문제를 표시할 수 없습니다.'}</div>
+          <div className="muted" style={{ marginTop: 8 }}>{loading ? '백엔드 문제 API를 확인하고 있습니다.' : error}</div>
+          {!loading && (
+            <div style={{ marginTop: 18 }}>
+              <Button onClick={() => navigate(`/learn/beginner/${topicId}`)}>
+                문제 목록으로 이동
+              </Button>
+            </div>
+          )}
+        </Card>
+      </AppLayout>
+    )
   }
 
   return (
@@ -182,10 +349,17 @@ export default function QuizPage() {
             <span className="bc-sep">›</span>
             <span className="bc-link" onClick={() => navigate('/learn/beginner')}>초급</span>
             <span className="bc-sep">›</span>
-            <span className="bc-link" onClick={() => navigate(`/learn/beginner/${topicId}`)}>기초 용어</span>
+            <span className="bc-link" onClick={() => navigate(`/learn/beginner/${topicId}`)}>문제 목록</span>
             <span className="bc-sep">›</span>
             <span className="bc-current">Q{quiz.id}</span>
           </div>
+
+          {(loading || error) && (
+            <div className="ai-block" style={{ marginBottom: 18 }}>
+              <span className="ai-tag">{loading ? '불러오는 중' : '알림'}</span>
+              <span style={{ fontSize: 14 }}>{loading ? '문제 데이터를 확인하고 있습니다.' : error}</span>
+            </div>
+          )}
 
           <div className="quiz-top-row">
             <button
@@ -197,15 +371,16 @@ export default function QuizPage() {
             </button>
             <div className="quiz-progress-wrap">
               <div className="row" style={{ marginBottom: 8, fontSize: 13, color: 'var(--t2)' }}>
-                <span>초급 기초 용어 · Q{quiz.id} / {MOCK_QUESTIONS.length}</span>
+                <span>문제 풀이 · Q{currentIndex >= 0 ? currentIndex + 1 : quiz.id} / {questions.length}</span>
                 <span>{progressPct}%</span>
               </div>
               <Progress value={progressPct} />
             </div>
             <button
               className="quiz-icon-button"
-              onClick={() => setBookmarked((prev) => !prev)}
+              onClick={() => void handle_bookmark_toggle()}
               aria-label="문제 찜하기"
+              disabled={bookmarkSaving}
             >
               <i className={`bi ${bookmarked ? 'bi-heart-fill' : 'bi-heart'}`} style={{ color: bookmarked ? 'var(--up)' : undefined }} />
             </button>
@@ -219,10 +394,10 @@ export default function QuizPage() {
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 20, fontWeight: 800 }}>{isCorrect ? '정답입니다!' : '오답입니다.'}</div>
                 <div style={{ marginTop: 4 }}>
-                  {isCorrect ? `+${quiz.reward.toLocaleString()}원 획득` : 'AI 설명으로 헷갈린 개념을 바로 확인해보세요.'}
+                  {isCorrect ? `+${(submitResult?.reward ?? quiz.reward).toLocaleString()}원 획득` : 'AI 설명으로 헷갈린 개념을 바로 확인해보세요.'}
                 </div>
               </div>
-              <Button variant="outline" onClick={handle_ai_open}>
+              <Button variant="outline" onClick={() => setAiOpen(true)}>
                 <i className="bi bi-stars" />
                 AI 설명
               </Button>
@@ -249,15 +424,15 @@ export default function QuizPage() {
               {quiz.options.map((option, index) => {
                 let optionClass = 'opt'
                 if (submitted) {
-                  if (index === quiz.correctIndex) optionClass += ' correct'
-                  else if (index === selected) optionClass += ' wrong'
+                  if (resultCorrectIndex >= 0 && index === resultCorrectIndex) optionClass += ' correct'
+                  else if (index === selected) optionClass += isCorrect ? ' correct' : ' wrong'
                 } else if (index === selected) {
                   optionClass += ' selected'
                 }
 
                 return (
                   <button
-                    key={option}
+                    key={quiz.choiceIds[index] ?? option}
                     className={optionClass}
                     onClick={() => !submitted && setSelected(index)}
                     disabled={submitted}
@@ -282,12 +457,12 @@ export default function QuizPage() {
                   </button>
                 </div>
                 <div className="quiz-submit-actions">
-                  <Button variant="outline" onClick={handle_ai_open}>
+                  <Button variant="outline" onClick={() => setAiOpen(true)}>
                     <i className="bi bi-stars" />
                     AI 설명
                   </Button>
-                  <Button size="lg" style={{ minWidth: 200 }} onClick={() => setSubmitted(true)} disabled={selected === null}>
-                    제출하기
+                  <Button size="lg" style={{ minWidth: 200 }} onClick={handle_submit} disabled={selected === null || submitting}>
+                    {submitting ? '제출 중...' : '제출하기'}
                   </Button>
                 </div>
               </div>
@@ -295,7 +470,9 @@ export default function QuizPage() {
               <>
                 <div className="ai-block" style={{ marginTop: 24 }}>
                   <span className="ai-tag">해설</span>
-                  <span style={{ fontSize: 14, lineHeight: 1.6 }}>{quiz.explanation}</span>
+                  <span style={{ fontSize: 14, lineHeight: 1.6 }}>
+                    {submitResult?.explanation ?? quiz.explanation ?? '등록된 해설이 없습니다.'}
+                  </span>
                 </div>
 
                 <div className="quiz-bottom-actions">
@@ -305,17 +482,17 @@ export default function QuizPage() {
                       이전
                     </button>
                     <button onClick={handle_next}>
-                      {quiz.id === MOCK_QUESTIONS.length ? '완료' : '다음'}
+                      {!hasNext ? '완료' : '다음'}
                       <i className="bi bi-chevron-right" />
                     </button>
                   </div>
                   <div className="quiz-submit-actions">
-                    <Button variant="outline" onClick={handle_ai_open}>
+                    <Button variant="outline" onClick={() => setAiOpen(true)}>
                       <i className="bi bi-stars" />
                       AI 설명
                     </Button>
                     <Button size="lg" style={{ minWidth: 200 }} onClick={handle_next}>
-                      {quiz.id === MOCK_QUESTIONS.length ? '완료하기' : '다음 문제'}
+                      {!hasNext ? '완료하기' : '다음 문제'}
                       <i className="bi bi-arrow-right" />
                     </Button>
                   </div>
@@ -359,7 +536,7 @@ export default function QuizPage() {
               placeholder="이 문제에 대해 질문하기"
               rows={2}
             />
-            <button onClick={() => send_ai_message(aiInput)} aria-label="AI에게 보내기">
+            <button onClick={() => void send_ai_message(aiInput)} aria-label="AI에게 보내기" disabled={aiSending}>
               <i className="bi bi-send-fill" />
             </button>
           </footer>

@@ -1,6 +1,16 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import AppLayout from '../components/layout/AppLayout'
+import { api_get_questions } from '../api/learning'
+import {
+  api_get_chat_sessions,
+  api_stream_chat_session,
+  api_stream_general_chat,
+  api_stream_question_chat,
+  type AiChatMessageRecord,
+  type AiChatSessionRecord,
+  type AiStreamEvent,
+} from '../api/ai'
 
 type MessageRole = 'assistant' | 'user'
 
@@ -12,6 +22,7 @@ interface ChatMessage {
 
 interface ChatHistory {
   id: number
+  sessionId: number | null
   title: string
   preview: string
   time: string
@@ -25,78 +36,14 @@ const WELCOME_MARKDOWN = `# 무엇을 분석해볼까요?
 - 실적과 밸류에이션 흐름
 - 매수/매도 판단에 필요한 체크포인트`
 
-const SAMPLE_REPLY = (question: string) => `## ${question}
-
-현재 입력하신 내용을 기준으로 분석 초안을 만들고 있습니다.
-
-### 핵심 체크
-- 최근 주가 움직임과 거래량을 먼저 확인하세요.
-- 실적 전망, 업종 사이클, 밸류에이션을 함께 비교하는 편이 좋습니다.
-- 단기 뉴스만으로 판단하기보다 손절 기준과 투자 기간을 먼저 정해두세요.
-
-**다음 질문 예시:** "이 종목의 상승 여력과 하락 리스크를 비교해줘"`
-
 const INITIAL_HISTORY: ChatHistory[] = [
   {
     id: 1,
-    title: '삼성전자 장기 투자',
-    preview: '메모리 업황과 PER 구간 분석',
-    time: '오늘',
-    messages: [
-      { id: 1, role: 'assistant', content: WELCOME_MARKDOWN },
-      { id: 2, role: 'user', content: '삼성전자 장기 투자 관점으로 봐줘' },
-      {
-        id: 3,
-        role: 'assistant',
-        content: `## 삼성전자 장기 투자 관점
-
-장기 관점에서는 메모리 반도체 사이클, 파운드리 경쟁력, 주주환원 정책을 같이 봐야 합니다.
-
-- **강점:** 현금창출력과 글로벌 메모리 점유율
-- **확인할 부분:** HBM 경쟁력, 설비투자 부담, 환율 영향
-- **전략:** 실적 추정치가 올라오는 구간에서는 분할 접근이 유리합니다.`,
-      },
-    ],
-  },
-  {
-    id: 2,
-    title: 'SK하이닉스 리스크',
-    preview: 'HBM 기대감과 밸류에이션 부담',
-    time: '어제',
-    messages: [
-      { id: 1, role: 'assistant', content: WELCOME_MARKDOWN },
-      { id: 2, role: 'user', content: 'SK하이닉스 지금 비싼지 알려줘' },
-      {
-        id: 3,
-        role: 'assistant',
-        content: `## SK하이닉스 밸류에이션 점검
-
-HBM 성장 기대가 주가에 선반영된 구간에서는 실적 상향 속도가 중요합니다.
-
-1. 서버 AI 수요 지속성
-2. 경쟁사 증설 속도
-3. 영업이익률 개선 폭`,
-      },
-    ],
-  },
-  {
-    id: 3,
-    title: '배당주 포트폴리오',
-    preview: '금리 하락기 배당 전략',
-    time: '3일 전',
-    messages: [
-      { id: 1, role: 'assistant', content: WELCOME_MARKDOWN },
-      { id: 2, role: 'user', content: '배당주 포트폴리오 짜는 기준 알려줘' },
-      {
-        id: 3,
-        role: 'assistant',
-        content: `## 배당주 포트폴리오 기준
-
-- 배당수익률보다 **배당 지속성**을 우선하세요.
-- 이익 변동성이 큰 업종은 비중을 제한하는 편이 좋습니다.
-- 현금흐름과 부채비율을 함께 확인하세요.`,
-      },
-    ],
+    sessionId: null,
+    title: '새 AI 분석',
+    preview: '질문을 입력해 분석을 시작하세요',
+    time: '방금',
+    messages: [{ id: 1, role: 'assistant', content: WELCOME_MARKDOWN }],
   },
 ]
 
@@ -106,6 +53,65 @@ const PROMPT_SUGGESTIONS = [
   '오늘 시장에서 반도체 섹터 흐름 요약해줘',
   '내 관심종목 리스크를 체크해줘',
 ]
+
+const get_question_id = (value: unknown) => {
+  if (!value || typeof value !== 'object') return 0
+  const obj = value as Record<string, unknown>
+  return Number(obj.question_id ?? obj.questionId ?? 0)
+}
+
+const get_questions_array = (value: unknown): unknown[] => {
+  if (Array.isArray(value)) return value
+  if (!value || typeof value !== 'object') return []
+
+  const obj = value as Record<string, unknown>
+  const nested = obj.data ?? obj.items ?? obj.content ?? obj.questions
+
+  return Array.isArray(nested) ? nested : []
+}
+
+const format_relative_time = (value: string) => {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '최근'
+
+  const diffSeconds = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000))
+  if (diffSeconds < 60) return '방금'
+
+  const diffMinutes = Math.floor(diffSeconds / 60)
+  if (diffMinutes < 60) return `${diffMinutes}분 전`
+
+  const diffHours = Math.floor(diffMinutes / 60)
+  if (diffHours < 24) return `${diffHours}시간 전`
+
+  const diffDays = Math.floor(diffHours / 24)
+  if (diffDays < 7) return `${diffDays}일 전`
+
+  return date.toLocaleDateString('ko-KR', {
+    month: 'short',
+    day: 'numeric',
+  })
+}
+
+const map_chat_message = (message: AiChatMessageRecord): ChatMessage => ({
+  id: message.messageId,
+  role: message.senderType === 'USER' ? 'user' : 'assistant',
+  content: message.messageText,
+})
+
+const map_chat_session = (session: AiChatSessionRecord): ChatHistory => {
+  const messages = session.messages.map(map_chat_message)
+
+  return {
+    id: session.sessionId,
+    sessionId: session.sessionId,
+    title: session.title || 'AI 대화',
+    preview: session.preview || '대화 기록이 없습니다.',
+    time: format_relative_time(session.updatedAt || session.createdAt),
+    messages: messages.length > 0
+      ? messages
+      : [{ id: session.sessionId * -1, role: 'assistant', content: WELCOME_MARKDOWN }],
+  }
+}
 
 function render_inline(text: string) {
   const parts = text.split(/(\*\*[^*]+\*\*)/g)
@@ -216,16 +222,67 @@ export default function AIPage() {
   const [histories, setHistories] = useState(INITIAL_HISTORY)
   const [activeChatId, setActiveChatId] = useState(INITIAL_HISTORY[0].id)
   const [inputText, setInputText] = useState('')
-  const nextChatIdRef = useRef(4)
-  const nextMessageIdRef = useRef(10)
+  const [seedQuestionId, setSeedQuestionId] = useState<number | null>(null)
+  const [isSending, setIsSending] = useState(false)
+  const [statusText, setStatusText] = useState('AI 서버 연결 준비 중')
+  const nextChatIdRef = useRef(2)
+  const nextMessageIdRef = useRef(2)
 
   const activeChat = histories.find((chat) => chat.id === activeChatId) ?? histories[0]
+
+  useEffect(() => {
+    let alive = true
+
+    const load_chat_data = async () => {
+      const [sessionsResult, questionsResult] = await Promise.allSettled([
+        api_get_chat_sessions(),
+        api_get_questions(),
+      ])
+
+      if (!alive) return
+
+      if (questionsResult.status === 'fulfilled') {
+        const firstQuestionId = get_questions_array(questionsResult.value.data)
+          .map(get_question_id)
+          .find((id) => id > 0) ?? null
+        setSeedQuestionId(firstQuestionId)
+      }
+
+      if (sessionsResult.status === 'fulfilled') {
+        const loadedHistories = sessionsResult.value.data.map(map_chat_session)
+        if (loadedHistories.length > 0) {
+          const maxChatId = Math.max(...loadedHistories.map((chat) => chat.id))
+          const maxMessageId = Math.max(
+            1,
+            ...loadedHistories.flatMap((chat) => chat.messages.map((message) => message.id)),
+          )
+
+          setHistories(loadedHistories)
+          setActiveChatId(loadedHistories[0].id)
+          nextChatIdRef.current = maxChatId + 1
+          nextMessageIdRef.current = maxMessageId + 1
+        }
+
+        setStatusText('AI 서버 연결됨')
+        return
+      }
+
+      setStatusText('AI 대화 기록 확인 필요')
+    }
+
+    void load_chat_data()
+
+    return () => {
+      alive = false
+    }
+  }, [])
 
   const start_new_chat = () => {
     const nextId = nextChatIdRef.current
     nextChatIdRef.current += 1
     const nextChat: ChatHistory = {
       id: nextId,
+      sessionId: null,
       title: '새 AI 분석',
       preview: '질문을 입력해 분석을 시작하세요',
       time: '방금',
@@ -237,37 +294,85 @@ export default function AIPage() {
     setInputText('')
   }
 
-  const send_message = (text: string) => {
-    const value = text.trim()
-    if (!value) return
+  const patch_chat = (chatId: number, updater: (chat: ChatHistory) => ChatHistory) => {
+    setHistories((prev) => prev.map((chat) => (
+      chat.id === chatId ? updater(chat) : chat
+    )))
+  }
 
+  const send_message = async (text: string) => {
+    const value = text.trim()
+    if (!value || isSending) return
+
+    const targetChat = activeChat
+    const targetChatId = targetChat.id
     const userMessage: ChatMessage = { id: nextMessageIdRef.current, role: 'user', content: value }
     nextMessageIdRef.current += 1
-    const assistantMessage: ChatMessage = {
-      id: nextMessageIdRef.current,
-      role: 'assistant',
-      content: SAMPLE_REPLY(value),
-    }
+    const assistantId = nextMessageIdRef.current
+    const assistantMessage: ChatMessage = { id: assistantId, role: 'assistant', content: '' }
     nextMessageIdRef.current += 1
 
-    setHistories((prev) => prev.map((chat) => (
-      chat.id === activeChatId
-        ? {
-          ...chat,
-          title: chat.title === '새 AI 분석' ? value.slice(0, 18) : chat.title,
-          preview: value,
-          time: '방금',
-          messages: [...chat.messages, userMessage, assistantMessage],
-        }
-        : chat
-    )))
+    patch_chat(targetChatId, (chat) => ({
+      ...chat,
+      title: chat.title === '새 AI 분석' ? value.slice(0, 18) : chat.title,
+      preview: value,
+      time: '방금',
+      messages: [...chat.messages, userMessage, assistantMessage],
+    }))
     setInputText('')
+    setIsSending(true)
+    setStatusText('답변 생성 중')
+
+    const onEvent = (event: AiStreamEvent) => {
+      if (event.type === 'session' || event.type === 'done') {
+        patch_chat(targetChatId, (chat) => ({ ...chat, sessionId: event.sessionId }))
+      }
+
+      if (event.type !== 'token') return
+
+      patch_chat(targetChatId, (chat) => ({
+        ...chat,
+        messages: chat.messages.map((message) => (
+          message.id === assistantId
+            ? { ...message, content: `${message.content}${event.content}` }
+            : message
+        )),
+      }))
+    }
+
+    try {
+      if (targetChat.sessionId) {
+        await api_stream_chat_session(targetChat.sessionId, value, onEvent)
+      } else if (!seedQuestionId) {
+        await api_stream_general_chat(value, onEvent)
+      } else {
+        try {
+          await api_stream_general_chat(value, onEvent)
+        } catch {
+          await api_stream_question_chat(seedQuestionId, value, onEvent)
+        }
+      }
+      setStatusText('AI 서버 연결됨')
+    } catch (err) {
+      const reason = err instanceof Error && err.message ? `\n\n${err.message}` : ''
+      patch_chat(targetChatId, (chat) => ({
+        ...chat,
+        messages: chat.messages.map((message) => (
+          message.id === assistantId
+            ? { ...message, content: `AI 답변을 받아오지 못했습니다. 백엔드 AI 서버와 인증 상태를 확인해주세요.${reason}` }
+            : message
+        )),
+      }))
+      setStatusText('AI 응답 실패')
+    } finally {
+      setIsSending(false)
+    }
   }
 
   const handle_key_down = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      send_message(inputText)
+      void send_message(inputText)
     }
   }
 
@@ -304,7 +409,7 @@ export default function AIPage() {
             </div>
             <span className="ai-status">
               <i className="bi bi-stars" />
-              Markdown 답변
+              {isSending ? '응답 생성 중' : statusText}
             </span>
           </header>
 
@@ -322,7 +427,7 @@ export default function AIPage() {
 
           <div className="ai-suggestion-row">
             {PROMPT_SUGGESTIONS.map((prompt) => (
-              <button key={prompt} onClick={() => send_message(prompt)}>
+              <button key={prompt} onClick={() => void send_message(prompt)} disabled={isSending}>
                 {prompt}
               </button>
             ))}
@@ -336,7 +441,7 @@ export default function AIPage() {
               placeholder="궁금한 종목이나 투자 아이디어를 입력하세요"
               rows={1}
             />
-            <button onClick={() => send_message(inputText)} aria-label="메시지 보내기">
+            <button onClick={() => void send_message(inputText)} aria-label="메시지 보내기" disabled={isSending}>
               <i className="bi bi-send-fill" />
             </button>
           </footer>

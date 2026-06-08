@@ -8,18 +8,13 @@ import Pill from '../components/common/Pill'
 import Progress from '../components/common/Progress'
 import Chip, { ChipRow } from '../components/common/Chip'
 import { api_get_stock_prices } from '../api/stocks'
+import { api_get_questions } from '../api/learning'
 import { format_money, format_rate, parse_number, useTradeHistory } from '../hooks/useTradeHistory'
 
 const PERIOD_TABS = ['1주', '1개월', '3개월', '1년']
 const PERIOD_DAYS: Record<string, number> = { '1주': 7, '1개월': 30, '3개월': 90, '1년': 365 }
 const CHART_WIDTH = 1100
 const CHART_HEIGHT = 200
-
-const RECOMMEND = [
-  { tag: '기초 용어', reward: '+500원', question: 'PER이 의미하는 것은?' },
-  { tag: '차트', reward: '+800원', question: '데드크로스 의미는?' },
-  { tag: '재무제표', reward: '+1,000원', question: 'ROE가 높을수록 좋은가?' },
-]
 
 const build_chart_points = (values: number[]) => {
   if (values.length === 0) return ''
@@ -42,12 +37,39 @@ const build_chart_points = (values: number[]) => {
 const format_chart_period = (period: string) =>
   period === '1년' ? '최근 1년' : `최근 ${period}`
 
+const as_record = (value: unknown) => (
+  value && typeof value === 'object' ? value as Record<string, unknown> : {}
+)
+
+const get_question_array = (raw: unknown): unknown[] => {
+  if (Array.isArray(raw)) return raw
+  const item = as_record(raw)
+  const nested = item.data ?? item.items ?? item.content ?? item.questions
+  return Array.isArray(nested) ? nested : []
+}
+
+const normalize_recommend_question = (raw: unknown) => {
+  const item = as_record(raw)
+  const id = Number(item.question_id ?? item.questionId ?? 0)
+  const question = String(item.question_text ?? item.questionText ?? '')
+  if (!id || !question) return null
+
+  return {
+    id,
+    tag: String(item.topicName ?? item.topic ?? '투자 학습'),
+    reward: Number(item.reward_cash ?? item.rewardCash ?? 0),
+    question,
+  }
+}
+
 export default function DashboardPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [period, setPeriod] = useState('1개월')
   const [assetTrend, setAssetTrend] = useState<number[]>([])
   const [chartLoading, setChartLoading] = useState(false)
+  const [recommendQuestions, setRecommendQuestions] = useState<Array<{ id: number; tag: string; reward: number; question: string }>>([])
+  const [recommendLoading, setRecommendLoading] = useState(false)
   const { holdings, summary, loading, error } = useTradeHistory()
 
   useEffect(() => {
@@ -96,6 +118,32 @@ export default function DashboardPage() {
       canceled = true
     }
   }, [holdings, period, summary.cashBalance, summary.totalAsset])
+
+  useEffect(() => {
+    let canceled = false
+
+    const loadRecommendQuestions = async () => {
+      setRecommendLoading(true)
+      try {
+        const { data } = await api_get_questions()
+        const nextQuestions = get_question_array(data)
+          .map(normalize_recommend_question)
+          .filter((item): item is { id: number; tag: string; reward: number; question: string } => item !== null)
+          .slice(0, 3)
+
+        if (!canceled) setRecommendQuestions(nextQuestions)
+      } catch {
+        if (!canceled) setRecommendQuestions([])
+      } finally {
+        if (!canceled) setRecommendLoading(false)
+      }
+    }
+
+    void loadRecommendQuestions()
+    return () => {
+      canceled = true
+    }
+  }, [])
 
   const chartPoints = useMemo(() => build_chart_points(assetTrend), [assetTrend])
   const chartFill = chartPoints ? `${chartPoints} ${CHART_WIDTH},${CHART_HEIGHT} 0,${CHART_HEIGHT}` : ''
@@ -289,16 +337,23 @@ export default function DashboardPage() {
         <Card>
           <div className="section-title">추천 학습</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {RECOMMEND.map((r) => (
+            {recommendLoading && (
+              <div className="muted" style={{ fontSize: 13 }}>문제를 불러오는 중입니다.</div>
+            )}
+            {!recommendLoading && recommendQuestions.length === 0 && (
+              <div className="muted" style={{ fontSize: 13 }}>추천할 문제가 없습니다.</div>
+            )}
+            {!recommendLoading && recommendQuestions.map((r) => (
               <div
-                key={r.question}
+                key={r.id}
                 style={{ padding: 14, border: '1px solid var(--border)', borderRadius: 12, cursor: 'pointer', transition: 'border-color 0.15s' }}
                 onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--primary-soft)')}
                 onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}
+                onClick={() => navigate(`/learn/quiz/basic-terms/${r.id}`)}
               >
                 <div className="row">
                   <Pill variant="gray">{r.tag}</Pill>
-                  <Pill variant="success">{r.reward}</Pill>
+                  <Pill variant="success">+{r.reward.toLocaleString()}원</Pill>
                 </div>
                 <div className="strong" style={{ marginTop: 8, fontSize: 13 }}>{r.question}</div>
               </div>
