@@ -6,6 +6,7 @@ import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
 import DashboardPage from './pages/DashboardPage'
 import LearnPage from './pages/LearnPage'
+import LearnAiHistoryPage from './pages/LearnAiHistoryPage'
 import LearnLevelPage from './pages/LearnLevelPage'
 import LearnTopicPage from './pages/LearnTopicPage'
 import QuizPage from './pages/QuizPage'
@@ -38,6 +39,7 @@ export default function App() {
         <Route element={<ProtectedRoute />}>
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/learn" element={<LearnPage />} />
+          <Route path="/learn/ai-history" element={<LearnAiHistoryPage />} />
           <Route path="/learn/quiz/:topicId/:questionId" element={<QuizPage />} />
           <Route path="/learn/:section" element={<LearnLevelPage />} />
           <Route path="/learn/:section/:topic" element={<LearnTopicPage />} />

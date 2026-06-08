@@ -39,6 +39,7 @@ export interface AiChatMessageRecord {
 export interface AiChatSessionRecord {
   sessionId: number
   questionId: number | null
+  questionText: string | null
   sessionType: 'ANALYSIS' | 'FEEDBACK' | 'GENERAL'
   title: string
   preview: string
@@ -58,8 +59,10 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 export const api_generate_ai_question = (data: GenerateAiQuestionRequest) =>
   api.post<GeneratedAiQuestion>('/ai/questions/generate', data, { timeout: 30000 })
 
-export const api_get_chat_sessions = () =>
-  api.get<AiChatSessionRecord[]>('/ai/chat-sessions')
+export const api_get_chat_sessions = (scope?: 'general' | 'question') =>
+  api.get<AiChatSessionRecord[]>('/ai/chat-sessions', {
+    params: scope ? { scope } : undefined,
+  })
 
 export const api_get_chat_session_messages = (sessionId: number) =>
   api.get<AiChatMessageRecord[]>(`/ai/chat-sessions/${sessionId}/messages`)

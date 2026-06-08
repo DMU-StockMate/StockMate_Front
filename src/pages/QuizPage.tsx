@@ -5,6 +5,7 @@ import Card from '../components/common/Card'
 import Button from '../components/common/Button'
 import Progress from '../components/common/Progress'
 import Chip, { ChipRow } from '../components/common/Chip'
+import MarkdownMessage from '../components/common/MarkdownMessage'
 import {
   api_add_bookmark,
   api_delete_bookmark,
@@ -521,9 +522,13 @@ export default function QuizPage() {
           <div className="quiz-ai-messages">
             {aiMessages.map((message) => (
               <div key={message.id} className={`quiz-ai-message ${message.role}`}>
-                {message.text.split('\n').map((line, index) => (
-                  <span key={`${message.id}-${index}`}>{line || '\u00A0'}</span>
-                ))}
+                {message.role === 'assistant' ? (
+                  <MarkdownMessage content={message.text} />
+                ) : (
+                  message.text.split('\n').map((line, index) => (
+                    <span key={`${message.id}-${index}`}>{line || '\u00A0'}</span>
+                  ))
+                )}
               </div>
             ))}
           </div>

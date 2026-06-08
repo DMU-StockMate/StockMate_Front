@@ -235,7 +235,7 @@ export default function AIPage() {
 
     const load_chat_data = async () => {
       const [sessionsResult, questionsResult] = await Promise.allSettled([
-        api_get_chat_sessions(),
+        api_get_chat_sessions('general'),
         api_get_questions(),
       ])
 
