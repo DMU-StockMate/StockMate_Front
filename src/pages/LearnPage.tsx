@@ -1,4 +1,3 @@
-import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import AppLayout from '../components/layout/AppLayout'
@@ -6,117 +5,47 @@ import Card from '../components/common/Card'
 import Button from '../components/common/Button'
 import Pill from '../components/common/Pill'
 import Progress from '../components/common/Progress'
-import { api_get_histories, api_get_questions, api_get_statistics, type LearningStatistics, type QuizAttempt } from '../api/learning'
+import {
+  useLearnPage,
+  get_attempt_question_text,
+  get_attempt_time,
+  get_attempt_reward,
+  get_bookmark_question_id,
+  get_bookmark_question_text,
+  get_bookmark_topic_slug,
+} from '../hooks/useLearnPage'
 
 const LEVELS = [
   {
-    id: 'beginner',
-    badge: '초',
-    badgeBg: '#10B981',
-    className: 'beginner',
-    title: '초급 학습',
-    desc: '투자가 처음이라면 여기서 시작.\n기초 용어와 시장 구조부터.',
-    tags: ['기초 용어', '차트 기초', '시장 이해'],
-    locked: false,
+    id: 'beginner', badge: '초', badgeBg: '#10B981', className: 'beginner',
+    title: '초급 학습', desc: '투자가 처음이라면 여기서 시작.\n기초 용어와 시장 구조부터.',
+    tags: ['기초 용어', '차트 기초', '시장 이해'], locked: false,
   },
   {
-    id: 'intermediate',
-    badge: '중',
-    badgeBg: '#3B82F6',
-    className: 'intermediate',
-    title: '중급 학습',
-    desc: '핵심 지표 분석과 실전.\n가치평가, 산업 분석까지.',
-    tags: ['재무제표', '가치평가', '산업 분석'],
-    locked: false,
+    id: 'intermediate', badge: '중', badgeBg: '#3B82F6', className: 'intermediate',
+    title: '중급 학습', desc: '핵심 지표 분석과 실전.\n가치평가, 산업 분석까지.',
+    tags: ['재무제표', '가치평가', '산업 분석'], locked: false,
   },
   {
-    id: 'advanced',
-    badge: '고',
-    badgeBg: '#6D29D9',
-    className: 'advanced',
-    title: '고급 학습',
-    desc: '심화된 전략과 분석.\n거시경제, 옵션, 포트폴리오.',
-    tags: ['거시경제', '옵션', '포트폴리오'],
-    locked: false,
+    id: 'advanced', badge: '고', badgeBg: '#6D29D9', className: 'advanced',
+    title: '고급 학습', desc: '심화된 전략과 분석.\n거시경제, 옵션, 포트폴리오.',
+    tags: ['거시경제', '옵션', '포트폴리오'], locked: false,
   },
   {
-    id: 'custom',
-    badge: 'AI',
-    badgeBg: 'linear-gradient(135deg, #EC4899, #F59E0B)',
-    className: 'custom',
-    title: '개인 맞춤 학습',
-    desc: 'AI가 분석한 약점 보강.\n생성 문제로 바로 복습.',
-    tags: ['오답 복습', 'AI 생성 문제'],
-    locked: false,
+    id: 'custom', badge: 'AI', badgeBg: 'linear-gradient(135deg, #EC4899, #F59E0B)', className: 'custom',
+    title: '개인 맞춤 학습', desc: 'AI가 분석한 약점 보강.\n생성 문제로 바로 복습.',
+    tags: ['오답 복습', 'AI 생성 문제'], locked: false,
   },
 ]
-
-const as_record = (value: unknown) => (
-  value && typeof value === 'object' ? value as Record<string, unknown> : {}
-)
-
-const get_array = (raw: unknown): unknown[] => {
-  if (Array.isArray(raw)) return raw
-  const item = as_record(raw)
-  const nested = item.data ?? item.items ?? item.content ?? item.questions
-  return Array.isArray(nested) ? nested : []
-}
-
-const get_attempt_question_text = (attempt: QuizAttempt) => (
-  String(attempt.question?.question_text ?? attempt.question?.questionText ?? `Q${attempt.question_id ?? attempt.questionId ?? ''}`)
-)
-
-const get_attempt_time = (attempt: QuizAttempt) => (
-  String(attempt.solved_at ?? attempt.solvedAt ?? '')
-)
-
-const get_attempt_reward = (attempt: QuizAttempt) => (
-  Number(attempt.reward_cash_earned ?? attempt.rewardCashEarned ?? 0)
-)
 
 export default function LearnPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const [stats, setStats] = useState<LearningStatistics | null>(null)
-  const [questionCount, setQuestionCount] = useState(0)
-  const [histories, setHistories] = useState<QuizAttempt[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    let alive = true
-
-    const loadLearning = async () => {
-      setLoading(true)
-      try {
-        const [statsResult, questionsResult, historiesResult] = await Promise.allSettled([
-          api_get_statistics(),
-          api_get_questions(),
-          api_get_histories(),
-        ])
-
-        if (!alive) return
-
-        if (statsResult.status === 'fulfilled') setStats(statsResult.value.data)
-        if (questionsResult.status === 'fulfilled') setQuestionCount(get_array(questionsResult.value.data).length)
-        if (historiesResult.status === 'fulfilled') {
-          setHistories(get_array(historiesResult.value.data) as QuizAttempt[])
-        }
-      } finally {
-        if (alive) setLoading(false)
-      }
-    }
-
-    void loadLearning()
-
-    return () => {
-      alive = false
-    }
-  }, [])
-
-  const accuracy = stats?.accuracy ?? 0
-  const progressValue = Math.min(100, accuracy)
-  const remainingForNextLevel = Math.max(0, 50 - (stats?.correct ?? 0))
-  const recentHistories = useMemo(() => histories.slice(0, 3), [histories])
+  const {
+    stats, questionCount, bookmarks, recentHistories,
+    loading, accuracy, progressValue, remainingForNextLevel,
+    handle_navigate_bookmark,
+  } = useLearnPage()
 
   return (
     <AppLayout topbarPlaceholder="학습 검색">
@@ -146,9 +75,7 @@ export default function LearnPage() {
             </div>
           </div>
           <Progress value={progressValue} variant="hero" style={{ marginTop: 18 }} />
-          <div style={{ opacity: 0.85, fontSize: 12, marginTop: 8 }}>
-            실제 학습 통계 API 기준
-          </div>
+          <div style={{ opacity: 0.85, fontSize: 12, marginTop: 8 }}>실제 학습 통계 API 기준</div>
         </Card>
 
         <Card>
@@ -169,6 +96,10 @@ export default function LearnPage() {
           <Button variant="outline" size="sm" style={{ width: '100%', marginTop: 10 }} onClick={() => navigate('/learn/ai-history')}>
             <i className="bi bi-chat-square-text" />
             AI 질문 기록 보기
+          </Button>
+          <Button variant="outline" size="sm" style={{ width: '100%', marginTop: 8 }} onClick={() => navigate('/learn/bookmarks')}>
+            <i className="bi bi-heart" />
+            찜한 문제 보기
           </Button>
         </Card>
       </div>
@@ -194,9 +125,7 @@ export default function LearnPage() {
             </div>
             <div className="lv-foot">
               <span>{questionCount}문제</span>
-              <span className="pct" style={{ color: 'var(--primary)' }}>
-                API 연동
-              </span>
+              <span className="pct" style={{ color: 'var(--primary)' }}>API 연동</span>
             </div>
           </div>
         ))}
@@ -226,6 +155,58 @@ export default function LearnPage() {
             </div>
           )
         })}
+      </Card>
+
+      <Card style={{ marginTop: 20 }}>
+        <div className="row" style={{ marginBottom: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div className="section-title" style={{ marginBottom: 0 }}>찜한 문제</div>
+            {bookmarks.length > 0 && (
+              <span style={{
+                fontSize: 12, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
+                background: 'rgba(239,68,68,0.1)', color: 'var(--up)',
+              }}>
+                {bookmarks.length}
+              </span>
+            )}
+          </div>
+          <span style={{ fontSize: 12, cursor: 'pointer', color: 'var(--primary)' }} onClick={() => navigate('/learn/bookmarks')}>
+            전체 보기 →
+          </span>
+        </div>
+        {loading && <div className="muted">찜한 문제를 불러오는 중입니다.</div>}
+        {!loading && bookmarks.length === 0 && (
+          <div className="muted">아직 찜한 문제가 없습니다. 문제 풀이 중 하트 버튼으로 추가하세요.</div>
+        )}
+        {!loading && bookmarks.slice(0, 4).map((bookmark) => {
+          const questionId = get_bookmark_question_id(bookmark)
+          const text = get_bookmark_question_text(bookmark)
+          const topicSlug = get_bookmark_topic_slug(bookmark)
+          return (
+            <div
+              key={questionId}
+              className="activity-row"
+              style={{ cursor: 'pointer' }}
+              onClick={() => handle_navigate_bookmark(bookmark)}
+            >
+              <div className="left">
+                <Pill variant="warning">
+                  <i className="bi bi-heart-fill" style={{ fontSize: 10 }} />
+                  찜
+                </Pill>
+                <span>{text || `Q${questionId}`}</span>
+              </div>
+              <span className="muted" style={{ fontSize: 12 }}>바로 풀기 →</span>
+            </div>
+          )
+        })}
+        {!loading && bookmarks.length > 4 && (
+          <div style={{ marginTop: 10, textAlign: 'center' }}>
+            <Button variant="outline" size="sm" onClick={() => navigate('/learn/bookmarks')}>
+              나머지 {bookmarks.length - 4}개 더 보기
+            </Button>
+          </div>
+        )}
       </Card>
     </AppLayout>
   )

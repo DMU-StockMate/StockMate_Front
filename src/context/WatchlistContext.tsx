@@ -163,31 +163,6 @@ export function WatchlistProvider({ children }: { children: ReactNode }) {
     if (!isLoading) void reload()
   }, [isLoading, reload])
 
-  useEffect(() => {
-    if (!isLoggedIn || items.length === 0) return
-
-    const timer = window.setInterval(() => {
-      void Promise.all(items.map(async (row) => {
-        try {
-          const { data } = await api_get_watchlist_realtime_price(row.watchlistId)
-          const price = unwrap_price(data) as unknown as StockPriceDaily
-          setItems((prev) => prev.map((item) => (
-            item.watchlistId === row.watchlistId
-              ? {
-                ...item,
-                currentPrice: get_price(price) || item.currentPrice,
-                changeRate: get_rate(price) ?? item.changeRate,
-              }
-              : item
-          )))
-        } catch {
-          // 실시간 가격이 아직 없으면 기존 표시값을 유지합니다.
-        }
-      }))
-    }, 5000)
-
-    return () => window.clearInterval(timer)
-  }, [isLoggedIn, items])
 
   const byTicker = useMemo(() => {
     const map: Record<string, WatchlistRow> = {}

@@ -76,8 +76,17 @@ export interface LearningStatistics {
   accuracy: number
 }
 
-export const api_get_questions = () =>
-  api.get<QuizQuestion[]>('/learning/questions')
+export interface GetQuestionsParams {
+  topicId?: number
+  investmentLevelId?: number
+  categoryId?: number
+}
+
+export const api_get_questions = (params?: GetQuestionsParams) =>
+  api.get<QuizQuestion[]>('/learning/questions', params ? { params } : undefined)
+
+export const api_get_questions_by_topic = (topicId: number) =>
+  api.get<QuizQuestion[]>('/learning/questions', { params: { topicId } })
 
 export const api_get_question = (questionId: number) =>
   api.get<QuizQuestion>(`/learning/questions/${questionId}`)

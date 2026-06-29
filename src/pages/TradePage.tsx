@@ -1,119 +1,23 @@
-import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AppLayout from '../components/layout/AppLayout'
 import Card from '../components/common/Card'
 import Button from '../components/common/Button'
-import {
-  api_get_stock_rankings_rise,
-  api_get_stock_rankings_volume,
-  type StockRankingItem,
-} from '../api/stocks'
-import {
-  format_money as format_trade_money,
-  format_rate as format_trade_rate,
-  useTradeHistory,
-} from '../hooks/useTradeHistory'
+import { useTradePage } from '../hooks/useTradePage'
 
-interface MarketStock {
-  name: string
-  ticker: string
-  market?: string
-  price: number
-  changeRate: number
-  changePrice?: number
-  volume?: number
-  up: boolean
-}
-
-interface ModalState {
-  open: boolean
-  mode: 'buy' | 'sell'
-  stock?: MarketStock
-}
-
-const get_items = (data: StockRankingItem[] | { items?: StockRankingItem[]; data?: StockRankingItem[] }) => {
-  if (Array.isArray(data)) return data
-  return data.items ?? data.data ?? []
-}
-
-const to_number = (value: unknown) => {
-  if (typeof value === 'number') return value
-  if (typeof value === 'string') return Number(value.replaceAll(',', '')) || 0
-  return 0
-}
-
-const normalize_stock = (stock: StockRankingItem): MarketStock => {
-  const ticker = stock.ticker ?? stock.code ?? stock.symbol ?? ''
-  const name = stock.companyName ?? stock.name ?? ticker
-  const price = to_number(stock.currentPrice ?? stock.closePrice ?? stock.price)
-  const changeRate = to_number(stock.changeRate ?? stock.rate)
-  return {
-    name,
-    ticker,
-    market: stock.market,
-    price,
-    changeRate,
-    changePrice: to_number(stock.changePrice ?? stock.change),
-    volume: to_number(stock.volume),
-    up: changeRate >= 0,
-  }
-}
-
-const format_price = (price: number) =>
-  price > 0 ? `${price.toLocaleString()}원` : '-'
-
-const format_rate = (rate: number) =>
-  `${rate > 0 ? '+' : ''}${rate.toFixed(2)}%`
+const format_price = (price: number) => (price > 0 ? `${price.toLocaleString()}원` : '-')
+const format_rate = (rate: number) => `${rate > 0 ? '+' : ''}${rate.toFixed(2)}%`
 
 export default function TradePage() {
   const navigate = useNavigate()
-  const [modal, setModal] = useState<ModalState>({ open: false, mode: 'buy' })
-  const [qty, setQty] = useState(2)
-  const [riseStocks, setRiseStocks] = useState<MarketStock[]>([])
-  const [volumeStocks, setVolumeStocks] = useState<MarketStock[]>([])
-  const [loading, setLoading] = useState(true)
   const {
-    summary,
-    loading: assetLoading,
-    trades,
-  } = useTradeHistory()
-
-  useEffect(() => {
-    Promise.all([
-      api_get_stock_rankings_rise(),
-      api_get_stock_rankings_volume(),
-    ])
-      .then(([riseRes, volumeRes]) => {
-        setRiseStocks(get_items(riseRes.data).map(normalize_stock))
-        setVolumeStocks(get_items(volumeRes.data).map(normalize_stock))
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [])
-
-  const handle_open_modal = (mode: 'buy' | 'sell', stock?: MarketStock) => {
-    const selected = stock ?? riseStocks[0] ?? volumeStocks[0]
-    if (!selected) {
-      navigate('/trade/stocks')
-      return
-    }
-    setModal({ open: true, mode, stock: selected })
-    setQty(1)
-  }
-
-  const handle_close_modal = () => setModal({ open: false, mode: 'buy' })
-
-  const unitPrice = modal.stock?.price ?? 0
-  const virtualCash = summary.cashBalance
-  const totalPrice = (unitPrice * qty).toLocaleString()
-  const remaining = (
-    modal.mode === 'buy'
-      ? Math.max(0, virtualCash - unitPrice * qty)
-      : virtualCash + unitPrice * qty
-  ).toLocaleString()
-  const today = new Date().toDateString()
-  const todayTradeCount = trades.filter((trade) => new Date(trade.createdAt).toDateString() === today).length
-  const profitText = `${summary.totalProfit >= 0 ? '+' : ''}${format_trade_money(summary.totalProfit)} (${format_trade_rate(summary.totalProfitRate)})`
+    modal, setModal, qty, setQty,
+    riseStocks, volumeStocks, loading,
+    summary, assetLoading, trades,
+    unitPrice, virtualCash, totalPrice, remaining,
+    todayTradeCount, profitText,
+    handle_open_modal, handle_close_modal,
+    format_trade_money,
+  } = useTradePage()
 
   return (
     <AppLayout topbarPlaceholder="종목 검색">
@@ -138,7 +42,6 @@ export default function TradePage() {
         </div>
       </div>
 
-      {/* 자산 hero + 빠른 액션 */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 20, marginBottom: 20 }}>
         <Card variant="hero" className="card-lg" style={{ position: 'relative' }}>
           <div className="row">
@@ -191,7 +94,6 @@ export default function TradePage() {
         </div>
       </div>
 
-      {/* 랭킹전 배너 */}
       <div className="ranking-banner" style={{ marginBottom: 20 }}>
         <div className="trophy-ico"><i className="bi bi-trophy-fill" /></div>
         <div style={{ flex: 1 }}>
@@ -201,7 +103,6 @@ export default function TradePage() {
         <button className="btn btn-sm" style={{ background: '#fff', color: '#92400E' }}>참여하기 →</button>
       </div>
 
-      {/* 보유 종목 + 최근 거래 */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 20 }}>
         <Card>
           <div className="row" style={{ marginBottom: 14 }}>
@@ -218,9 +119,7 @@ export default function TradePage() {
           ) : (
             <table className="tbl">
               <thead>
-                <tr>
-                  <th>종목</th><th>시장</th><th>현재가</th><th>등락률</th><th>액션</th>
-                </tr>
+                <tr><th>종목</th><th>시장</th><th>현재가</th><th>등락률</th><th>액션</th></tr>
               </thead>
               <tbody>
                 {riseStocks.slice(0, 5).map((stock) => (
@@ -282,48 +181,30 @@ export default function TradePage() {
               <div className={stock.up ? 'price-up' : 'price-down'} style={{ fontSize: 13 }}>{format_rate(stock.changeRate)}</div>
             </div>
           ))}
-          <button
-            className="btn btn-ghost"
-            style={{ width: '100%', marginTop: 14 }}
-            onClick={() => navigate('/trade/stocks')}
-          >
+          <button className="btn btn-ghost" style={{ width: '100%', marginTop: 14 }} onClick={() => navigate('/trade/stocks')}>
             전체 종목 둘러보기
           </button>
         </Card>
       </div>
 
-      {/* 매수/매도 모달 */}
       {modal.open && (
         <div className="modal-backdrop" onClick={handle_close_modal}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="row" style={{ marginBottom: 18 }}>
               <h2>주문하기</h2>
-              <button
-                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, color: 'var(--t2)' }}
-                onClick={handle_close_modal}
-              >×</button>
+              <button style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, color: 'var(--t2)' }} onClick={handle_close_modal}>×</button>
             </div>
 
             <div className="trade-tab" style={{ marginBottom: 18 }}>
-              <button
-                className={modal.mode === 'buy' ? 'active-tab' : 'inactive-tab'}
-                onClick={() => setModal((m) => ({ ...m, mode: 'buy' }))}
-              >
-                매수
-              </button>
+              <button className={modal.mode === 'buy' ? 'active-tab' : 'inactive-tab'} onClick={() => setModal((m) => ({ ...m, mode: 'buy' }))}>매수</button>
               <button
                 className={modal.mode === 'sell' ? 'active-tab' : 'inactive-tab'}
                 style={{ ...(modal.mode === 'sell' ? { background: 'var(--down)', color: '#fff' } : {}) }}
                 onClick={() => setModal((m) => ({ ...m, mode: 'sell' }))}
-              >
-                매도
-              </button>
+              >매도</button>
             </div>
 
-            <div
-              className="card"
-              style={{ background: 'var(--primary-subtle)', boxShadow: 'none', border: '1px solid var(--border)', marginBottom: 18, padding: '14px 16px' }}
-            >
+            <div className="card" style={{ background: 'var(--primary-subtle)', boxShadow: 'none', border: '1px solid var(--border)', marginBottom: 18, padding: '14px 16px' }}>
               <div className="row">
                 <div className="stock-cell">
                   <div className="logo-sm">{modal.stock?.name.slice(0, 2)}</div>
@@ -350,10 +231,7 @@ export default function TradePage() {
               </div>
             </div>
 
-            <div
-              className="card"
-              style={{ background: 'var(--bg)', boxShadow: 'none', border: '1px solid var(--border)', marginBottom: 18, padding: '14px 16px' }}
-            >
+            <div className="card" style={{ background: 'var(--bg)', boxShadow: 'none', border: '1px solid var(--border)', marginBottom: 18, padding: '14px 16px' }}>
               <div className="row" style={{ fontSize: 13, marginBottom: 8 }}>
                 <span className="muted">예상 체결금액</span>
                 <span className="strong">{totalPrice}원</span>

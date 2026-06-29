@@ -1,4 +1,3 @@
-import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import AppLayout from '../components/layout/AppLayout'
@@ -7,148 +6,28 @@ import Button from '../components/common/Button'
 import Pill from '../components/common/Pill'
 import Progress from '../components/common/Progress'
 import Chip, { ChipRow } from '../components/common/Chip'
-import { api_get_stock_prices } from '../api/stocks'
-import { api_get_questions } from '../api/learning'
-import { format_money, format_rate, parse_number, useTradeHistory } from '../hooks/useTradeHistory'
+import { format_rate } from '../hooks/useTradeHistory'
+import {
+  useDashboard,
+  CHART_WIDTH_CONST,
+  CHART_HEIGHT_CONST,
+} from '../hooks/useDashboard'
 
 const PERIOD_TABS = ['1주', '1개월', '3개월', '1년']
-const PERIOD_DAYS: Record<string, number> = { '1주': 7, '1개월': 30, '3개월': 90, '1년': 365 }
-const CHART_WIDTH = 1100
-const CHART_HEIGHT = 200
-
-const build_chart_points = (values: number[]) => {
-  if (values.length === 0) return ''
-  if (values.length === 1) values = [values[0], values[0]]
-
-  const min = Math.min(...values)
-  const max = Math.max(...values)
-  const range = max - min || 1
-  const topPadding = 18
-  const bottomPadding = 24
-  const drawableHeight = CHART_HEIGHT - topPadding - bottomPadding
-
-  return values.map((value, index) => {
-    const x = values.length === 1 ? CHART_WIDTH : (index / (values.length - 1)) * CHART_WIDTH
-    const y = topPadding + ((max - value) / range) * drawableHeight
-    return `${x.toFixed(1)},${y.toFixed(1)}`
-  }).join(' ')
-}
 
 const format_chart_period = (period: string) =>
   period === '1년' ? '최근 1년' : `최근 ${period}`
 
-const as_record = (value: unknown) => (
-  value && typeof value === 'object' ? value as Record<string, unknown> : {}
-)
-
-const get_question_array = (raw: unknown): unknown[] => {
-  if (Array.isArray(raw)) return raw
-  const item = as_record(raw)
-  const nested = item.data ?? item.items ?? item.content ?? item.questions
-  return Array.isArray(nested) ? nested : []
-}
-
-const normalize_recommend_question = (raw: unknown) => {
-  const item = as_record(raw)
-  const id = Number(item.question_id ?? item.questionId ?? 0)
-  const question = String(item.question_text ?? item.questionText ?? '')
-  if (!id || !question) return null
-
-  return {
-    id,
-    tag: String(item.topicName ?? item.topic ?? '투자 학습'),
-    reward: Number(item.reward_cash ?? item.rewardCash ?? 0),
-    question,
-  }
-}
-
 export default function DashboardPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const [period, setPeriod] = useState('1개월')
-  const [assetTrend, setAssetTrend] = useState<number[]>([])
-  const [chartLoading, setChartLoading] = useState(false)
-  const [recommendQuestions, setRecommendQuestions] = useState<Array<{ id: number; tag: string; reward: number; question: string }>>([])
-  const [recommendLoading, setRecommendLoading] = useState(false)
-  const { holdings, summary, loading, error } = useTradeHistory()
-
-  useEffect(() => {
-    let canceled = false
-
-    const loadAssetTrend = async () => {
-      if (holdings.length === 0) {
-        setAssetTrend(summary.totalAsset > 0 ? [summary.totalAsset, summary.totalAsset] : [])
-        return
-      }
-
-      setChartLoading(true)
-      try {
-        const days = PERIOD_DAYS[period] ?? 30
-        const results = await Promise.allSettled(
-          holdings.map((holding) => api_get_stock_prices(holding.ticker, { days, limit: days })),
-        )
-        const valuesByDate = new Map<string, number>()
-
-        results.forEach((result, index) => {
-          if (result.status !== 'fulfilled') return
-          const quantity = holdings[index]?.quantity ?? 0
-          result.value.data.prices?.forEach((price) => {
-            const closePrice = parse_number(price.closePrice)
-            if (!price.tradeDate || closePrice <= 0 || quantity <= 0) return
-            valuesByDate.set(price.tradeDate, (valuesByDate.get(price.tradeDate) ?? summary.cashBalance) + closePrice * quantity)
-          })
-        })
-
-        const nextTrend = Array.from(valuesByDate.entries())
-          .sort(([a], [b]) => a.localeCompare(b))
-          .map(([, value]) => value)
-
-        if (!canceled) {
-          setAssetTrend(nextTrend.length > 0 ? nextTrend : [summary.totalAsset, summary.totalAsset])
-        }
-      } catch {
-        if (!canceled) setAssetTrend(summary.totalAsset > 0 ? [summary.totalAsset, summary.totalAsset] : [])
-      } finally {
-        if (!canceled) setChartLoading(false)
-      }
-    }
-
-    void loadAssetTrend()
-    return () => {
-      canceled = true
-    }
-  }, [holdings, period, summary.cashBalance, summary.totalAsset])
-
-  useEffect(() => {
-    let canceled = false
-
-    const loadRecommendQuestions = async () => {
-      setRecommendLoading(true)
-      try {
-        const { data } = await api_get_questions()
-        const nextQuestions = get_question_array(data)
-          .map(normalize_recommend_question)
-          .filter((item): item is { id: number; tag: string; reward: number; question: string } => item !== null)
-          .slice(0, 3)
-
-        if (!canceled) setRecommendQuestions(nextQuestions)
-      } catch {
-        if (!canceled) setRecommendQuestions([])
-      } finally {
-        if (!canceled) setRecommendLoading(false)
-      }
-    }
-
-    void loadRecommendQuestions()
-    return () => {
-      canceled = true
-    }
-  }, [])
-
-  const chartPoints = useMemo(() => build_chart_points(assetTrend), [assetTrend])
-  const chartFill = chartPoints ? `${chartPoints} ${CHART_WIDTH},${CHART_HEIGHT} 0,${CHART_HEIGHT}` : ''
-  const lastChartPoint = chartPoints.split(' ').at(-1)?.split(',').map(Number) ?? [CHART_WIDTH, CHART_HEIGHT / 2]
-  const topHoldings = holdings.slice(0, 5)
+  const {
+    period, setPeriod, chartLoading,
+    recommendQuestions, recommendLoading,
+    holdings, summary, loading, error, topHoldings,
+    chartPoints, chartFill, lastChartPoint,
+    format_money,
+  } = useDashboard()
 
   return (
     <AppLayout hasNotification hasWishlist>
@@ -163,7 +42,6 @@ export default function DashboardPage() {
         </Button>
       </div>
 
-      {/* 상단 3열 카드 */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: 20, marginBottom: 20 }}>
         <Card variant="hero" className="card-lg">
           <div className="label">총 가상 자산</div>
@@ -221,13 +99,10 @@ export default function DashboardPage() {
               <span key={i} className={fill ? 'fill' : ''} />
             ))}
           </div>
-          <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>
-            다음 보상: +2,000원 (5일차)
-          </div>
+          <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>다음 보상: +2,000원 (5일차)</div>
         </Card>
       </div>
 
-      {/* 자산 추이 차트 */}
       <Card style={{ marginBottom: 20 }}>
         <div className="row" style={{ marginBottom: 16 }}>
           <div>
@@ -238,9 +113,7 @@ export default function DashboardPage() {
           </div>
           <ChipRow>
             {PERIOD_TABS.map((t) => (
-              <Chip key={t} active={period === t} onClick={() => setPeriod(t)}>
-                {t}
-              </Chip>
+              <Chip key={t} active={period === t} onClick={() => setPeriod(t)}>{t}</Chip>
             ))}
           </ChipRow>
         </div>
@@ -253,7 +126,7 @@ export default function DashboardPage() {
               자산 추이를 불러오는 중입니다.
             </div>
           ) : chartPoints ? (
-            <svg viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`} preserveAspectRatio="none" style={{ width: '100%', height: '100%' }}>
+            <svg viewBox={`0 0 ${CHART_WIDTH_CONST} ${CHART_HEIGHT_CONST}`} preserveAspectRatio="none" style={{ width: '100%', height: '100%' }}>
               <defs>
                 <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#8B5CF6" stopOpacity="0.30" />
@@ -272,7 +145,6 @@ export default function DashboardPage() {
         </div>
       </Card>
 
-      {/* 보유 종목 + 추천 학습 */}
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 20 }}>
         <Card>
           <div className="row" style={{ marginBottom: 8 }}>
@@ -281,9 +153,7 @@ export default function DashboardPage() {
           </div>
           <table className="tbl">
             <thead>
-              <tr>
-                <th>종목</th><th>보유</th><th>평균가</th><th>현재가</th><th>손익률</th><th></th>
-              </tr>
+              <tr><th>종목</th><th>보유</th><th>평균가</th><th>현재가</th><th>손익률</th><th></th></tr>
             </thead>
             <tbody>
               {loading && (
@@ -315,10 +185,7 @@ export default function DashboardPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={(event) => {
-                        event.stopPropagation()
-                        navigate(`/trade/stocks/${holding.ticker}`)
-                      }}
+                      onClick={(e) => { e.stopPropagation(); navigate(`/trade/stocks/${holding.ticker}`) }}
                     >
                       매도
                     </Button>

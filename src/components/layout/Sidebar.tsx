@@ -22,7 +22,7 @@ const NAV_ITEMS: NavItemDef[] = [
       { path: '/learn/advanced', label: '고급' },
       { path: '/learn/custom', label: '개인 맞춤' },
       { path: '/learn/ai-history', label: 'AI 질문 기록' },
-      { path: '/learn/favorites', label: '찜한 문제' },
+      { path: '/learn/bookmarks', label: '찜한 문제' },
     ],
   },
   { path: '/ai', label: 'AI 분석', icon: 'bi-cpu' },
