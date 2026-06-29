@@ -34,7 +34,6 @@ const NAV_ITEMS: NavItemDef[] = [
       { path: '/trade', label: '대시보드' },
       { path: '/trade/stocks', label: '전체 종목' },
       { path: '/trade/history', label: '투자 내역' },
-      { path: '/trade/ranking', label: '랭킹전' },
       { path: '/trade/watchlist', label: '관심 종목' },
     ],
   },
@@ -56,24 +55,33 @@ export default function Sidebar() {
   const { isLoggedIn, user, logout } = useAuth()
   const isAdmin = user?.role === 'ADMIN'
 
-  const getInitialOpen = () =>
-    NAV_ITEMS
+  const [openSubs, setOpenSubs] = useState<string[]>(() => {
+    try {
+      const saved = sessionStorage.getItem('sidebar-open-subs')
+      if (saved) return JSON.parse(saved) as string[]
+    } catch {}
+    return NAV_ITEMS
       .filter((item) => item.subItems && location.pathname.startsWith(item.path))
       .map((item) => item.path)
-
-  const [openSubs, setOpenSubs] = useState<string[]>(getInitialOpen)
+  })
 
   useEffect(() => {
     const autoOpen = NAV_ITEMS
       .filter((item) => item.subItems && location.pathname.startsWith(item.path))
       .map((item) => item.path)
-    setOpenSubs((prev) => Array.from(new Set([...prev, ...autoOpen])))
+    setOpenSubs((prev) => {
+      const next = Array.from(new Set([...prev, ...autoOpen]))
+      try { sessionStorage.setItem('sidebar-open-subs', JSON.stringify(next)) } catch {}
+      return next
+    })
   }, [location.pathname])
 
   const handle_toggle_sub = (path: string) => {
-    setOpenSubs((prev) =>
-      prev.includes(path) ? prev.filter((p) => p !== path) : [...prev, path]
-    )
+    setOpenSubs((prev) => {
+      const next = prev.includes(path) ? prev.filter((p) => p !== path) : [...prev, path]
+      try { sessionStorage.setItem('sidebar-open-subs', JSON.stringify(next)) } catch {}
+      return next
+    })
   }
 
   const isParentActive = (path: string) =>

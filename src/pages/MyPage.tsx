@@ -11,9 +11,8 @@ import { api_get_statistics, type LearningStatistics } from '../api/learning'
 
 const MENU = [
   { icon: 'bi-person-gear', label: '개인정보 변경', path: '/mypage/edit' },
-  { icon: 'bi-heart', label: '찜한 문제' },
+  { icon: 'bi-heart', label: '찜한 문제', path: '/learn/bookmarks' },
   { icon: 'bi-clock-history', label: '모의투자 내역', path: '/trade/history' },
-  { icon: 'bi-bar-chart-fill', label: '투자 통계', path: '/trade/history' },
   { icon: 'bi-gear', label: '설정' },
 ]
 
@@ -79,23 +78,6 @@ export default function MyPage() {
           </div>
           <Progress value={stats ? Math.min(100, stats.correct * 2) : 0} variant="hero" style={{ marginTop: 14 }} />
         </Card>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16, marginBottom: 20 }}>
-        {[
-          { num: '+4.5%', lbl: '총 수익률', cls: 'price-up' },
-          { num: '12', lbl: '거래 횟수', cls: '' },
-          {
-            num: stats ? String(stats.total) : '-',
-            lbl: '푼 문제',
-            cls: '',
-          },
-        ].map((s) => (
-          <Card key={s.lbl} style={{ textAlign: 'center', padding: 20 }}>
-            <div style={{ fontSize: 24, fontWeight: 800 }} className={s.cls}>{s.num}</div>
-            <div style={{ fontSize: 12, color: 'var(--t2)', marginTop: 4 }}>{s.lbl}</div>
-          </Card>
-        ))}
       </div>
 
       {stats && (
