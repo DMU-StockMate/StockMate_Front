@@ -80,6 +80,7 @@ export default function StockDetailPage() {
     financials,
     holdings,
     indicators,
+    indicatorSyncing,
     loading,
     modal,
     period,
@@ -319,7 +320,11 @@ export default function StockDetailPage() {
 
         <Card>
           <div className="section-title" style={{ marginBottom: 16 }}>투자 지표</div>
-          {hasIndicators ? (
+          {indicatorSyncing ? (
+            <div className="muted" style={{ textAlign: 'center', padding: '24px 0', fontSize: 13 }}>
+              DART에서 재무 지표를 불러오는 중...
+            </div>
+          ) : hasIndicators ? (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               {[
                 { label: 'PER', value: fmt_indicator(indicatorValues?.per, '배') },
@@ -339,7 +344,7 @@ export default function StockDetailPage() {
               {(indicators?.indicatorTradeDate || indicators?.tradeDate) && (
                 <div className="muted" style={{ gridColumn: '1 / -1', fontSize: 12, paddingTop: 4 }}>
                   기준일 {indicators.indicatorTradeDate ?? indicators.tradeDate}
-                  {!hasFinancialIndicators && ' · PER/PBR 등 재무지표는 수집 데이터가 없어 표시되지 않습니다'}
+                  {indicators.indicatorSource === 'DART' && ' · DART 재무제표 기반 계산'}
                 </div>
               )}
             </div>

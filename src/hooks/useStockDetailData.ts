@@ -15,6 +15,7 @@ import {
   type StockSummary,
   type StockPriceDaily,
 } from '../api/stocks'
+import { api_sync_dart_indicators } from '../api/dart'
 import {
   api_buy_stock,
   api_get_holdings,
@@ -220,6 +221,7 @@ export function useStockDetailData(ticker?: string) {
   const [chartData, setChartData] = useState<StockPriceDaily[]>([])
   const [financials] = useState<Record<string, unknown> | null>(null)
   const [indicators, setIndicators] = useState<StockInvestmentIndicators | null>(null)
+  const [indicatorSyncing, setIndicatorSyncing] = useState(false)
   const [dividends] = useState<Record<string, unknown>[]>([])
   const [period, setPeriod] = useState<StockChartPeriod>('daily')
   const [loading, setLoading] = useState(true)
@@ -250,7 +252,26 @@ export function useStockDetailData(ticker?: string) {
         setActiveTicker(requestedTicker)
         setStock(stock)
         setSummary(normalize_summary(summaryRes.data, priceRes.data))
-        setIndicators(indicatorsRes.data)
+
+        const freshIndicators = indicatorsRes.data as StockInvestmentIndicators | null
+        setIndicators(freshIndicators)
+
+        // 재무 지표가 없으면 DART에서 자동 동기화 후 재조회
+        const hasFinancialData = Boolean(
+          freshIndicators?.dataAvailability?.financialIndicators ||
+          (freshIndicators?.indicators &&
+            Object.values(freshIndicators.indicators).some((v) => v !== null && v !== undefined)),
+        )
+        if (!hasFinancialData) {
+          setIndicatorSyncing(true)
+          api_sync_dart_indicators(requestedTicker)
+            .then(() => api_get_stock_indicators(requestedTicker))
+            .then(({ data }) => {
+              if (!cancelled) setIndicators(data as StockInvestmentIndicators)
+            })
+            .catch(() => {})
+            .finally(() => { if (!cancelled) setIndicatorSyncing(false) })
+        }
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -368,6 +389,7 @@ export function useStockDetailData(ticker?: string) {
     financials,
     holdings,
     indicators,
+    indicatorSyncing,
     loading,
     modal,
     period,
