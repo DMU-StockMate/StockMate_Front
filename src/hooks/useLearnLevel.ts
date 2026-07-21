@@ -63,12 +63,6 @@ const LEVEL_META: Record<string, {
       { id: 'tax', icon: 'bi-receipt', title: '세금과 제도', desc: '양도소득세와 절세 전략.', status: 'not-started' },
     ],
   },
-  custom: {
-    badge: 'AI', badgeBg: 'linear-gradient(135deg, #EC4899, #F59E0B)', title: '개인 맞춤 학습', sub: 'AI 생성 문제와 오답 복습',
-    topics: [
-      { id: 'basic-terms', icon: 'bi-stars', title: 'AI 생성 문제', desc: '현재 등록된 문제와 AI 생성 문제를 이어서 풉니다.', status: 'active' },
-    ],
-  },
 }
 
 const get_question_id = (raw: unknown) => {

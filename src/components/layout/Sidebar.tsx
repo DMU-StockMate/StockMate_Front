@@ -42,7 +42,8 @@ const NAV_ITEMS: NavItemDef[] = [
 
 const OPTIONAL_NAV: NavItemDef[] = [
   { path: '/news', label: '뉴스', icon: 'bi-newspaper' },
-  { path: '/ranking', label: '랭킹 & 커뮤니티', icon: 'bi-trophy' },
+  { path: '/ranking', label: '랭킹', icon: 'bi-trophy' },
+  { path: '/community', label: '커뮤니티', icon: 'bi-chat-square-text' },
 ]
 
 const ADMIN_NAV: NavItemDef[] = [
