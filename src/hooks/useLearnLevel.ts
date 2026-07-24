@@ -27,7 +27,7 @@ interface TopicData {
 
 type FilterType = '전체' | '진행 중' | '미시작'
 
-const LEVEL_META: Record<string, {
+export const LEVEL_META: Record<string, {
   badge: string; badgeBg: string; title: string; sub: string; topics: TopicData[]
 }> = {
   beginner: {

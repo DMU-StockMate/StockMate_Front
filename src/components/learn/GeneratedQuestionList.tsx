@@ -1,8 +1,8 @@
 import Card from '../common/Card'
 import Pill from '../common/Pill'
 import { ChipRow } from '../common/Chip'
-import type { AiGenerationSource, GeneratedAiQuestion } from '../../api/ai'
-import type { GeneratedTab } from '../../hooks/useLearnCustom'
+import type { AiGenerationSource } from '../../api/ai'
+import type { GeneratedQuestionResult, GeneratedTab } from '../../hooks/useLearnCustom'
 
 const SOURCE_LABEL: Record<AiGenerationSource, string> = {
   WRONG_NOTE: '오답 기반',
@@ -15,12 +15,11 @@ const SOURCE_PILL_VARIANT: Record<AiGenerationSource, 'accent' | 'primary'> = {
 }
 
 interface GeneratedQuestionListProps {
-  questions: GeneratedAiQuestion[]
+  questions: GeneratedQuestionResult[]
   tab: GeneratedTab
   onTabChange: (tab: GeneratedTab) => void
   wrongNoteCount: number
   promptCount: number
-  loading: boolean
   onQuestionClick: (questionId: number) => void
 }
 
@@ -30,7 +29,6 @@ export default function GeneratedQuestionList({
   onTabChange,
   wrongNoteCount,
   promptCount,
-  loading,
   onQuestionClick,
 }: GeneratedQuestionListProps) {
   return (
@@ -51,24 +49,17 @@ export default function GeneratedQuestionList({
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
-        {loading && (
-          <Card style={{ gridColumn: '1 / -1' }}>
-            <div className="muted">생성된 문제를 불러오는 중입니다.</div>
-          </Card>
-        )}
-        {!loading && questions.length === 0 && (
+        {questions.length === 0 && (
           <Card style={{ gridColumn: '1 / -1' }}>
             <div className="muted">아직 생성된 문제가 없습니다. 위에서 문제를 생성해보세요.</div>
           </Card>
         )}
-        {!loading && questions.map((question) => (
+        {questions.map((question) => (
           <div key={question.questionId} className="quiz-mini" onClick={() => onQuestionClick(question.questionId)}>
             <div className="qm-num">Q{question.questionId} · {question.questionType === 'OX' ? 'OX' : '객관식'}</div>
             <div className="qm-q">{question.questionText}</div>
             <div className="qm-foot">
-              {question.sourceType ? (
-                <Pill variant={SOURCE_PILL_VARIANT[question.sourceType]}>{SOURCE_LABEL[question.sourceType]}</Pill>
-              ) : <span />}
+              <Pill variant={SOURCE_PILL_VARIANT[question.sourceType]}>{SOURCE_LABEL[question.sourceType]}</Pill>
               <Pill variant="success">+{question.rewardCash.toLocaleString()}원</Pill>
             </div>
           </div>

@@ -27,10 +27,6 @@ export default function TradePage() {
           <div className="page-sub">1주 단위로 안전하게 실전 감각을 익혀보세요</div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <Button variant="outline" onClick={() => navigate('/trade/history')}>
-            <i className="bi bi-clipboard-data" />
-            투자 내역
-          </Button>
           <Button variant="outline">
             <i className="bi bi-trophy" />
             랭킹전

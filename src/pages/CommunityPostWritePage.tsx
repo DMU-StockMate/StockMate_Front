@@ -5,12 +5,17 @@ import PostForm from '../components/community/PostForm'
 import { useCommunityPostForm } from '../hooks/useCommunityPostForm'
 import type { CommunityBoardType } from '../api/community'
 
+interface WriteLocationState {
+  boardType?: CommunityBoardType
+  stock?: { ticker: string; companyName: string } | null
+}
+
 export default function CommunityPostWritePage() {
   const { postId } = useParams<{ postId: string }>()
   const navigate = useNavigate()
   const location = useLocation()
-  const defaultBoardType = (location.state as { boardType?: CommunityBoardType })?.boardType ?? 'FREE'
-  const form = useCommunityPostForm(postId, defaultBoardType)
+  const state = (location.state as WriteLocationState) ?? {}
+  const form = useCommunityPostForm(postId, state.boardType ?? 'FREE', state.stock ?? null)
 
   const handle_cancel = () => {
     navigate(postId ? `/community/${postId}` : '/community')
@@ -32,10 +37,8 @@ export default function CommunityPostWritePage() {
             boardType={form.boardType}
             onBoardTypeChange={form.setBoardType}
             boardTypeLocked={form.isEdit}
-            ticker={form.ticker}
-            onTickerChange={form.setTicker}
-            stockName={form.stockName}
-            onStockNameChange={form.setStockName}
+            selectedStock={form.selectedStock}
+            onSelectStock={form.setSelectedStock}
             title={form.title}
             onTitleChange={form.setTitle}
             content={form.content}

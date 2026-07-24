@@ -1,18 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  api_create_community_post,
-  api_get_community_post,
-  api_update_community_post,
+  api_create_free_post,
+  api_create_stock_post,
+  api_get_post_detail,
+  api_update_post,
   type CommunityBoardType,
 } from '../api/community'
-import {
-  get_community_error_message,
-  normalize_community_post,
-  validate_post_content,
-  validate_post_title,
-  validate_stock_ticker,
-} from '../utils/community'
+import { get_community_error_message, validate_post_content, validate_post_title } from '../utils/community'
 
 interface FormErrors {
   title?: string
@@ -21,13 +16,21 @@ interface FormErrors {
   general?: string
 }
 
-export function useCommunityPostForm(postId: string | undefined, defaultBoardType: CommunityBoardType = 'FREE') {
+export interface SelectedStock {
+  ticker: string
+  companyName: string
+}
+
+export function useCommunityPostForm(
+  postId: string | undefined,
+  defaultBoardType: CommunityBoardType = 'FREE',
+  defaultStock: SelectedStock | null = null,
+) {
   const navigate = useNavigate()
   const isEdit = Boolean(postId)
 
   const [boardType, setBoardType] = useState<CommunityBoardType>(defaultBoardType)
-  const [ticker, setTicker] = useState('')
-  const [stockName, setStockName] = useState('')
+  const [selectedStock, setSelectedStock] = useState<SelectedStock | null>(defaultStock)
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [errors, setErrors] = useState<FormErrors>({})
@@ -40,14 +43,12 @@ export function useCommunityPostForm(postId: string | undefined, defaultBoardTyp
     const load = async () => {
       setLoading(true)
       try {
-        const { data } = await api_get_community_post(postId)
-        const post = normalize_community_post(data)
-        if (!alive || !post) return
+        const { data: post } = await api_get_post_detail(postId)
+        if (!alive) return
         setBoardType(post.boardType)
-        setTicker(post.ticker ?? '')
-        setStockName(post.stockName ?? '')
+        if (post.stock) setSelectedStock({ ticker: post.stock.ticker, companyName: post.stock.companyName })
         setTitle(post.title)
-        setContent(post.content)
+        setContent(post.content ?? '')
       } catch (err) {
         if (alive) setErrors({ general: get_community_error_message(err, '게시글을 불러오지 못했습니다.') })
       } finally {
@@ -62,7 +63,7 @@ export function useCommunityPostForm(postId: string | undefined, defaultBoardTyp
     const nextErrors: FormErrors = {
       title: validate_post_title(title),
       content: validate_post_content(content),
-      ticker: validate_stock_ticker(boardType, ticker),
+      ticker: boardType === 'STOCK' && !isEdit && !selectedStock ? '종목을 선택해주세요' : undefined,
     }
     if (nextErrors.title || nextErrors.content || nextErrors.ticker) {
       setErrors(nextErrors)
@@ -72,25 +73,15 @@ export function useCommunityPostForm(postId: string | undefined, defaultBoardTyp
     setSubmitting(true)
     try {
       if (isEdit && postId) {
-        await api_update_community_post(postId, {
-          title: title.trim(),
-          content: content.trim(),
-          ticker: boardType === 'STOCK' ? ticker.trim() : undefined,
-          stockName: boardType === 'STOCK' ? stockName.trim() : undefined,
-        })
+        await api_update_post(postId, { title: title.trim(), content: content.trim() })
         navigate(`/community/${postId}`, { replace: true })
         return
       }
 
-      const { data } = await api_create_community_post({
-        boardType,
-        title: title.trim(),
-        content: content.trim(),
-        ticker: boardType === 'STOCK' ? ticker.trim() : undefined,
-        stockName: boardType === 'STOCK' ? stockName.trim() : undefined,
-      })
-      const created = normalize_community_post(data)
-      navigate(created ? `/community/${created.postId}` : '/community')
+      const { data: created } = boardType === 'STOCK' && selectedStock
+        ? await api_create_stock_post(selectedStock.ticker, { title: title.trim(), content: content.trim() })
+        : await api_create_free_post({ title: title.trim(), content: content.trim() })
+      navigate(`/community/${created.postId}`)
     } catch (err) {
       setErrors({ general: get_community_error_message(err, '게시글 저장에 실패했습니다.') })
     } finally {
@@ -105,9 +96,8 @@ export function useCommunityPostForm(postId: string | undefined, defaultBoardTyp
     handle_submit,
     isEdit,
     loading,
-    stockName, setStockName,
+    selectedStock, setSelectedStock,
     submitting,
-    ticker, setTicker,
     title, setTitle,
   }
 }

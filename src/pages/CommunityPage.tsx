@@ -1,25 +1,40 @@
-import { useNavigate } from 'react-router-dom'
+import { useMemo } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import AppLayout from '../components/layout/AppLayout'
 import Card from '../components/common/Card'
 import Button from '../components/common/Button'
 import Pagination from '../components/common/Pagination'
 import BoardTabs from '../components/community/BoardTabs'
 import PostSearchBar from '../components/community/PostSearchBar'
+import PostSortBar from '../components/community/PostSortBar'
 import PostListTable from '../components/community/PostListTable'
+import StockBoardPicker from '../components/community/StockBoardPicker'
 import { useCommunityPosts } from '../hooks/useCommunityPosts'
 import { useAuth } from '../hooks/useAuth'
+import type { CommunityBoardType } from '../api/community'
 
 export default function CommunityPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { isLoggedIn, user } = useAuth()
-  const community = useCommunityPosts('STOCK')
+
+  const initialBoardType: CommunityBoardType = searchParams.get('board') === 'FREE' ? 'FREE' : 'STOCK'
+  const initialStock = useMemo(() => {
+    const ticker = searchParams.get('ticker')
+    const name = searchParams.get('name')
+    return ticker ? { ticker, companyName: name ?? ticker } : null
+  }, [searchParams])
+
+  const community = useCommunityPosts(initialBoardType, initialStock)
 
   const handle_write = () => {
     if (!isLoggedIn) {
       navigate('/login')
       return
     }
-    navigate('/community/write', { state: { boardType: community.boardType } })
+    navigate('/community/write', {
+      state: { boardType: community.boardType, stock: community.selectedStock },
+    })
   }
 
   return (
@@ -36,7 +51,7 @@ export default function CommunityPage() {
       </div>
 
       <div className="row" style={{ justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
-        <BoardTabs value={community.boardType} onChange={community.handle_change_board} />
+        <BoardTabs value={community.boardType} onChange={community.setBoardType} />
         <div style={{ width: 320 }}>
           <PostSearchBar
             keyword={community.keyword}
@@ -46,9 +61,24 @@ export default function CommunityPage() {
         </div>
       </div>
 
+      {community.boardType === 'STOCK' && (
+        <StockBoardPicker
+          selectedStock={community.selectedStock}
+          onSelect={community.handle_select_stock}
+          onClear={community.handle_clear_stock}
+        />
+      )}
+
       {community.error && (
         <div style={{ color: 'var(--up)', fontSize: 13, marginBottom: 12 }}>{community.error}</div>
       )}
+
+      <div className="row" style={{ marginBottom: 12 }}>
+        <PostSortBar value={community.sort} onChange={community.handle_sort_change} />
+        {community.boardType === 'STOCK' && !community.selectedStock && (
+          <span className="muted" style={{ fontSize: 12 }}>전체 종목 게시글</span>
+        )}
+      </div>
 
       <Card style={{ padding: 0, overflow: 'hidden' }}>
         <PostListTable

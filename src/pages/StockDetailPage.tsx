@@ -237,6 +237,13 @@ export default function StockDetailPage() {
                 <i className={`bi ${isWatchlisted ? 'bi-star-fill' : 'bi-star'}`} />
                 {isWatchlisted ? '관심종목 해제' : '관심종목'}
               </Button>
+              <Button
+                variant="outline"
+                onClick={() => navigate(`/community?board=STOCK&ticker=${stock.ticker}&name=${encodeURIComponent(stock.companyName)}`)}
+              >
+                <i className="bi bi-chat-square-text" />
+                종목 게시판
+              </Button>
               <Button variant="outline" onClick={() => { setModal({ open: true, mode: 'sell' }); setQty(1) }}>
                 매도
               </Button>

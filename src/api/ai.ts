@@ -1,35 +1,44 @@
 import { api } from './axios'
 
 export type AiQuestionType = 'MULTIPLE_CHOICE' | 'OX'
-
-export interface GenerateAiQuestionRequest {
-  topicId: number
-  investmentLevelId: number
-  questionType: AiQuestionType
-}
-
 export type AiGenerationSource = 'WRONG_NOTE' | 'PROMPT'
 
 export interface GenerateFromWrongNotesRequest {
+  questionIds: number[]
+  topicId?: number
   investmentLevelId?: number
+  categoryId?: number
   questionType?: AiQuestionType
+  count?: number
 }
 
 export interface GenerateFromPromptRequest {
   prompt: string
-  investmentLevelId?: number
   questionType?: AiQuestionType
+  topicId?: number
+  investmentLevelId?: number
+  categoryId?: number
+  count?: number
 }
 
-export interface GeneratedAiChoice {
+export interface GeneratedQuestionChoice {
   choiceId: number
   choiceNo: number
   text: string
   isCorrect: boolean
 }
 
-export interface GeneratedAiQuestion {
-  message: string
+export interface GeneratedQuestionCategoryRef {
+  categoryId: number
+  categoryName: string
+}
+
+export interface GeneratedQuestionDetailRef {
+  detailId: number
+  detailName: string
+}
+
+export interface GeneratedQuestionItem {
   questionId: number
   questionText: string
   questionType: AiQuestionType
@@ -37,10 +46,14 @@ export interface GeneratedAiQuestion {
   rewardCash: number
   topic: string
   level: string
-  choices: GeneratedAiChoice[]
-  sourceType?: AiGenerationSource
-  createdAt?: string
-  [key: string]: unknown
+  category: GeneratedQuestionCategoryRef | null
+  details: GeneratedQuestionDetailRef[]
+  choices: GeneratedQuestionChoice[]
+}
+
+export interface GenerateQuestionBatchResponse {
+  message: string
+  questions: GeneratedQuestionItem[]
 }
 
 export type AiSenderType = 'USER' | 'AI'
@@ -72,17 +85,11 @@ export type AiStreamEvent =
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
-export const api_generate_ai_question = (data: GenerateAiQuestionRequest) =>
-  api.post<GeneratedAiQuestion>('/ai/questions/generate', data, { timeout: 30000 })
+export const api_generate_from_wrong_notes = (data: GenerateFromWrongNotesRequest) =>
+  api.post<GenerateQuestionBatchResponse>('/ai/questions/generate', data, { timeout: 30000 })
 
-export const api_generate_question_from_wrong_notes = (data?: GenerateFromWrongNotesRequest) =>
-  api.post<GeneratedAiQuestion>('/ai/questions/generate/wrong-notes', data, { timeout: 30000 })
-
-export const api_generate_question_from_prompt = (data: GenerateFromPromptRequest) =>
-  api.post<GeneratedAiQuestion>('/ai/questions/generate/prompt', data, { timeout: 30000 })
-
-export const api_get_generated_questions = () =>
-  api.get<GeneratedAiQuestion[] | { items?: GeneratedAiQuestion[] }>('/ai/questions/generated')
+export const api_generate_from_prompt = (data: GenerateFromPromptRequest) =>
+  api.post<GenerateQuestionBatchResponse>('/ai/questions/generate/prompt', data, { timeout: 30000 })
 
 export const api_get_chat_sessions = (scope?: 'general' | 'question') =>
   api.get<AiChatSessionRecord[]>('/ai/chat-sessions', {

@@ -1,40 +1,29 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  api_generate_question_from_prompt,
-  api_generate_question_from_wrong_notes,
-  api_get_generated_questions,
+  api_generate_from_prompt,
+  api_generate_from_wrong_notes,
   type AiGenerationSource,
-  type GeneratedAiQuestion,
+  type GeneratedQuestionItem,
 } from '../api/ai'
-import { as_record, get_array } from '../utils/normalize'
+import { api_get_wrong_notes, type QuizAttempt } from '../api/learning'
+import { get_community_error_message } from '../utils/community'
 
 export type GenerationMode = AiGenerationSource
+
+export interface GeneratedQuestionResult extends GeneratedQuestionItem {
+  sourceType: AiGenerationSource
+}
+
 export type GeneratedTab = 'ALL' | AiGenerationSource
 
-const normalize_generated_question = (raw: unknown): GeneratedAiQuestion | null => {
-  const item = as_record(raw)
-  const questionId = Number(item.questionId ?? item.question_id ?? 0)
-  const questionText = String(item.questionText ?? item.question_text ?? '')
-  if (!questionId || !questionText) return null
+const MAX_WRONG_QUESTION_IDS = 50
 
-  const sourceRaw = String(item.sourceType ?? item.source_type ?? item.generationType ?? item.generation_type ?? '').toUpperCase()
-  const sourceType: AiGenerationSource | undefined = sourceRaw === 'WRONG_NOTE' ? 'WRONG_NOTE' : sourceRaw === 'PROMPT' ? 'PROMPT' : undefined
+// 백엔드에 학습 주제 목록 조회 API가 없어 프롬프트 생성 시 저장용 topicId를 고정값으로 사용한다.
+const DEFAULT_TOPIC_ID = 1
 
-  return {
-    message: String(item.message ?? ''),
-    questionId,
-    questionText,
-    questionType: (item.questionType ?? item.question_type) === 'OX' ? 'OX' : 'MULTIPLE_CHOICE',
-    explanation: String(item.explanation ?? ''),
-    rewardCash: Number(item.rewardCash ?? item.reward_cash ?? 0),
-    topic: String(item.topic ?? ''),
-    level: String(item.level ?? ''),
-    choices: Array.isArray(item.choices) ? item.choices as GeneratedAiQuestion['choices'] : [],
-    sourceType,
-    createdAt: String(item.createdAt ?? item.created_at ?? ''),
-  }
-}
+const get_wrong_note_question_id = (attempt: QuizAttempt) =>
+  Number(attempt.question_id ?? attempt.questionId ?? attempt.question?.question_id ?? attempt.question?.questionId ?? 0)
 
 export function useLearnCustom() {
   const navigate = useNavigate()
@@ -43,26 +32,8 @@ export function useLearnCustom() {
   const [promptError, setPromptError] = useState('')
   const [generating, setGenerating] = useState(false)
   const [generateError, setGenerateError] = useState('')
-  const [questions, setQuestions] = useState<GeneratedAiQuestion[]>([])
+  const [questions, setQuestions] = useState<GeneratedQuestionResult[]>([])
   const [tab, setTab] = useState<GeneratedTab>('ALL')
-  const [loading, setLoading] = useState(true)
-
-  const reload = useCallback(async () => {
-    setLoading(true)
-    try {
-      const { data } = await api_get_generated_questions()
-      const items = get_array(data)
-        .map(normalize_generated_question)
-        .filter((item): item is GeneratedAiQuestion => item !== null)
-      setQuestions(items)
-    } catch {
-      setQuestions([])
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => { void reload() }, [reload])
 
   const handle_generate = useCallback(async () => {
     if (mode === 'PROMPT' && !prompt.trim()) {
@@ -73,18 +44,33 @@ export function useLearnCustom() {
     setGenerateError('')
     setGenerating(true)
     try {
-      const { data } = mode === 'WRONG_NOTE'
-        ? await api_generate_question_from_wrong_notes()
-        : await api_generate_question_from_prompt({ prompt: prompt.trim() })
+      let batch: GeneratedQuestionItem[]
 
-      const tagged: GeneratedAiQuestion = { ...data, sourceType: data.sourceType ?? mode }
-      setQuestions((prev) => [tagged, ...prev])
+      if (mode === 'WRONG_NOTE') {
+        const { data: wrongNotes } = await api_get_wrong_notes()
+        const questionIds = Array.from(new Set(wrongNotes.map(get_wrong_note_question_id).filter((id) => id > 0)))
+          .slice(0, MAX_WRONG_QUESTION_IDS)
+
+        if (questionIds.length === 0) {
+          setGenerateError('아직 오답 기록이 없습니다. 문제를 먼저 풀어본 뒤 다시 시도해주세요.')
+          return
+        }
+
+        const { data } = await api_generate_from_wrong_notes({ questionIds })
+        batch = data.questions
+      } else {
+        const { data } = await api_generate_from_prompt({ prompt: prompt.trim(), topicId: DEFAULT_TOPIC_ID })
+        batch = data.questions
+      }
+
+      const tagged = batch.map((question) => ({ ...question, sourceType: mode }))
+      setQuestions((prev) => [...tagged, ...prev])
       if (mode === 'PROMPT') setPrompt('')
-    } catch {
+    } catch (err) {
       setGenerateError(
         mode === 'WRONG_NOTE'
-          ? '오답 기반 문제 생성에 실패했습니다. 오답 노트가 있는지 확인해주세요.'
-          : 'AI 문제 생성에 실패했습니다. 잠시 후 다시 시도해주세요.',
+          ? get_community_error_message(err, '오답 기반 문제 생성에 실패했습니다.')
+          : get_community_error_message(err, 'AI 문제 생성에 실패했습니다. 잠시 후 다시 시도해주세요.'),
       )
     } finally {
       setGenerating(false)
@@ -105,7 +91,6 @@ export function useLearnCustom() {
     questions, filteredQuestions,
     wrongNoteCount, promptCount,
     tab, setTab,
-    loading,
     handle_generate,
     handle_question_click,
   }

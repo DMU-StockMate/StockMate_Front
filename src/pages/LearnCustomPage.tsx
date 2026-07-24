@@ -14,7 +14,6 @@ export default function LearnCustomPage() {
     filteredQuestions,
     wrongNoteCount, promptCount,
     tab, setTab,
-    loading,
     handle_generate,
     handle_question_click,
   } = useLearnCustom()
@@ -61,7 +60,6 @@ export default function LearnCustomPage() {
         onTabChange={setTab}
         wrongNoteCount={wrongNoteCount}
         promptCount={promptCount}
-        loading={loading}
         onQuestionClick={handle_question_click}
       />
     </AppLayout>

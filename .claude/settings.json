@@ -4,7 +4,24 @@
       "Bash(lsof -ti:5174 -sTCP:LISTEN)",
       "Bash(xargs -r kill)",
       "Bash(lsof -ti:3000 -sTCP:LISTEN)",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(curl -s \"http://localhost:3000/stocks/search?keyword=samsung\" -o /tmp/out1.json)",
+      "Bash(curl -s \"http://localhost:3000/stocks/search?keyword=005930\" -o /tmp/out2.json)",
+      "Bash(node check-search.js)",
+      "Bash(lsof -ti:5173 -sTCP:LISTEN)",
+      "Bash(echo \"lint exit: $?\")",
+      "Bash(ls -la /Users/tpfls/Desktop/GitHub/StockMate/ 2>&1)",
+      "Read(//Users/tpfls/Desktop/GitHub/StockMate/**)",
+      "Bash(echo \"=== StockMate_BackEnd ===\"; ls -la /Users/tpfls/Desktop/GitHub/StockMate/StockMate_BackEnd/ 2>&1 | head -30 *)",
+      "Read(//Users/tpfls/Desktop/GitHub/StockMate/StockMate_BackEnd/**)",
+      "Read(//Users/tpfls/Desktop/GitHub/StockMate/stock-mate_back/**)",
+      "Bash(cd /Users/tpfls/Desktop/GitHub/StockMate/StockMate_BackEnd/src && find . -maxdepth 3 -type d | sort)",
+      "Read(//Users/tpfls/Desktop/GitHub/StockMate/StockMate_BackEnd/src/**)",
+      "Read(//Users/tpfls/Desktop/GitHub/StockMate/StockMate_BackEnd/src/modules/ai/**)",
+      "Bash(xargs -I{} echo {})",
+      "Bash(cd /Users/tpfls/Desktop/GitHub/StockMate/StockMate_BackEnd/src/modules/learning && find . -type f -name \"*.controller.ts\" -o -name \"*.dto.ts\" | sort)",
+      "Read(//Users/tpfls/Desktop/GitHub/StockMate/StockMate_BackEnd/src/modules/learning/**)",
+      "Bash(cd /Users/tpfls/Desktop/GitHub/StockMate/StockMate_BackEnd/src/modules/learning && cat controllers/learning.controller.ts)"
     ]
   }
 }

@@ -42,7 +42,7 @@ export default function CommentList({
           <CommentItem
             key={comment.commentId}
             comment={comment}
-            canManage={currentUserId !== undefined && comment.authorId === currentUserId}
+            canManage={currentUserId !== undefined && comment.userId === currentUserId}
             isProcessing={actionCommentId === comment.commentId}
             onSave={onEdit}
             onDelete={onDelete}

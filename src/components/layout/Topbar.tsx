@@ -1,26 +1,28 @@
-import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
+import { useGlobalSearch } from '../../hooks/useGlobalSearch'
+import GlobalSearchDropdown from './GlobalSearchDropdown'
 
 interface TopbarProps {
   placeholder?: string
   hasNotification?: boolean
   hasWishlist?: boolean
-  onSearch?: (query: string) => void
 }
 
 export default function Topbar({
-  placeholder = '종목, 학습, 뉴스 검색',
+  placeholder = '종목, 커뮤니티, 학습 검색',
   hasNotification = false,
   hasWishlist = false,
-  onSearch,
 }: TopbarProps) {
-  const [query, setQuery] = useState('')
   const { isLoggedIn, user } = useAuth()
-
-  const handle_key_down = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && onSearch) onSearch(query)
-  }
+  const {
+    query, setQuery,
+    setFocused,
+    open,
+    loading,
+    stockResults, communityResults, learningResults,
+    handle_select, handle_key_down,
+  } = useGlobalSearch()
 
   return (
     <header className="topbar">
@@ -30,19 +32,26 @@ export default function Topbar({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handle_key_down}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
           placeholder={placeholder}
           aria-label="검색"
         />
+        {open && (
+          <GlobalSearchDropdown
+            query={query}
+            loading={loading}
+            stockResults={stockResults}
+            communityResults={communityResults}
+            learningResults={learningResults}
+            onSelect={handle_select}
+          />
+        )}
       </div>
 
       <div className="top-actions">
         {isLoggedIn ? (
           <>
-            {hasWishlist && (
-              <button className="icon-btn" aria-label="찜한 항목">
-                <i className="bi bi-heart" />
-              </button>
-            )}
             <button className="icon-btn" aria-label="알림">
               <i className="bi bi-bell" />
               {hasNotification && <span className="badge" />}

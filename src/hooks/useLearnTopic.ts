@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { api_generate_ai_question, type AiQuestionType } from '../api/ai'
+import { api_generate_from_wrong_notes, type AiQuestionType } from '../api/ai'
 import {
   api_get_bookmarks,
   api_get_histories,
@@ -180,14 +180,23 @@ export function useLearnTopic() {
   const handle_quiz_click = (quiz: QuizItem) => navigate(`/learn/quiz/${topic}/${quiz.id}`)
 
   const handle_generate_question = async (questionType: AiQuestionType) => {
+    const wrongQuestionIds = quizzes.filter((q) => q.isWrong).map((q) => q.id).slice(0, 50)
+    if (wrongQuestionIds.length === 0) {
+      setGenerateError('아직 이 주제에서 틀린 문제가 없습니다. 문제를 먼저 풀어본 뒤 다시 시도해주세요.')
+      return
+    }
+
     setGeneratingType(questionType)
     setGenerateError('')
     try {
-      const { data: generated } = await api_generate_ai_question({
-        topicId: mappedTopicId ?? 1,
+      const { data } = await api_generate_from_wrong_notes({
+        questionIds: wrongQuestionIds,
+        topicId: mappedTopicId ?? undefined,
         investmentLevelId: INVESTMENT_LEVEL_ID_MAP[section] ?? 1,
         questionType,
       })
+      const generated = data.questions[0]
+      if (!generated) throw new Error('empty batch')
       navigate(`/learn/quiz/${topic}/${generated.questionId}`)
     } catch {
       setGenerateError('AI 문제 생성에 실패했습니다. 백엔드 AI 서버 상태를 확인해주세요.')

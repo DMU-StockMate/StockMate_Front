@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import AppLayout from '../components/layout/AppLayout'
 import Card from '../components/common/Card'
+import ConfirmModal from '../components/common/ConfirmModal'
 import PostDetailCard from '../components/community/PostDetailCard'
 import CommentList from '../components/community/CommentList'
 import { useCommunityPost } from '../hooks/useCommunityPost'
@@ -11,9 +13,10 @@ export default function CommunityPostDetailPage() {
   const navigate = useNavigate()
   const { isLoggedIn, user } = useAuth()
   const community = useCommunityPost(postId)
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
 
-  const handle_delete_post = async () => {
-    if (!window.confirm('게시글을 삭제하시겠습니까?')) return
+  const handle_confirm_delete = async () => {
+    setConfirmDeleteOpen(false)
     await community.remove_post()
   }
 
@@ -36,10 +39,13 @@ export default function CommunityPostDetailPage() {
           <Card style={{ marginBottom: 16 }}>
             <PostDetailCard
               post={community.post}
-              canManage={user?.id !== undefined && community.post.authorId === user.id}
+              canManage={user?.id !== undefined && community.post.userId === user.id}
               deleting={community.deletingPost}
+              liked={community.liked}
+              likePending={community.likePending}
               onEdit={() => navigate(`/community/${postId}/edit`)}
-              onDelete={() => void handle_delete_post()}
+              onDelete={() => setConfirmDeleteOpen(true)}
+              onToggleLike={() => void community.toggle_like()}
             />
           </Card>
 
@@ -59,6 +65,14 @@ export default function CommunityPostDetailPage() {
           </Card>
         </>
       )}
+
+      <ConfirmModal
+        open={confirmDeleteOpen}
+        title="정말 삭제하시겠습니까?"
+        message="삭제한 게시글은 복구할 수 없습니다."
+        onConfirm={() => void handle_confirm_delete()}
+        onCancel={() => setConfirmDeleteOpen(false)}
+      />
     </AppLayout>
   )
 }

@@ -2,16 +2,20 @@ import Input from '../common/Input'
 import Textarea from '../common/Textarea'
 import Button from '../common/Button'
 import Chip, { ChipRow } from '../common/Chip'
+import StockBoardPicker from './StockBoardPicker'
 import type { CommunityBoardType } from '../../api/community'
+
+interface SelectedStock {
+  ticker: string
+  companyName: string
+}
 
 interface PostFormProps {
   boardType: CommunityBoardType
   onBoardTypeChange: (boardType: CommunityBoardType) => void
   boardTypeLocked: boolean
-  ticker: string
-  onTickerChange: (value: string) => void
-  stockName: string
-  onStockNameChange: (value: string) => void
+  selectedStock: SelectedStock | null
+  onSelectStock: (stock: SelectedStock) => void
   title: string
   onTitleChange: (value: string) => void
   content: string
@@ -26,10 +30,8 @@ export default function PostForm({
   boardType,
   onBoardTypeChange,
   boardTypeLocked,
-  ticker,
-  onTickerChange,
-  stockName,
-  onStockNameChange,
+  selectedStock,
+  onSelectStock,
   title,
   onTitleChange,
   content,
@@ -49,25 +51,15 @@ export default function PostForm({
       )}
 
       {boardType === 'STOCK' && (
-        <div style={{ display: 'flex', gap: 12 }}>
-          <div style={{ flex: 1 }}>
-            <Input
-              label="종목 코드"
-              placeholder="예: 005930"
-              value={ticker}
-              onChange={(event) => onTickerChange(event.target.value)}
-              error={errors.ticker}
-            />
+        boardTypeLocked && selectedStock ? (
+          <Input label="종목" value={`${selectedStock.companyName} (${selectedStock.ticker})`} disabled readOnly />
+        ) : (
+          <div>
+            <div className="input-label" style={{ marginBottom: 6 }}>종목 선택</div>
+            <StockBoardPicker selectedStock={selectedStock} onSelect={onSelectStock} />
+            {errors.ticker && <span className="input-error-msg">{errors.ticker}</span>}
           </div>
-          <div style={{ flex: 1 }}>
-            <Input
-              label="종목명 (선택)"
-              placeholder="예: 삼성전자"
-              value={stockName}
-              onChange={(event) => onStockNameChange(event.target.value)}
-            />
-          </div>
-        </div>
+        )
       )}
 
       <Input
