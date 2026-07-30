@@ -73,7 +73,7 @@ const get_ai_intro = (quiz: QuizItem) =>
   `이 문제는 ${quiz.type === 'multiple' ? '4지선다' : 'OX'} 형식입니다. 헷갈리는 보기를 말해주면 문제 맥락을 기준으로 설명해드릴게요.`
 
 export function useQuiz() {
-  const { topicId = 'basic-terms', questionId = '' } = useParams<{ topicId: string; questionId: string }>()
+  const { topicId = '1', questionId = '' } = useParams<{ topicId: string; questionId: string }>()
   const navigate = useNavigate()
   const requestedQuestionId = Number.parseInt(questionId, 10)
 

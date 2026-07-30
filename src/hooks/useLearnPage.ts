@@ -11,12 +11,6 @@ import {
 } from '../api/learning'
 import { as_record, get_array } from '../utils/normalize'
 
-const TOPIC_ID_TO_SLUG: Record<number, string> = {
-  1: 'basic-terms', 3: 'chart-basics', 4: 'market-basics', 5: 'trading-basics',
-  6: 'risk-return', 7: 'financial-statements', 8: 'valuation', 9: 'industry-analysis',
-  10: 'technical-analysis', 11: 'etf-fund', 12: 'macro',
-}
-
 export const get_attempt_question_text = (attempt: QuizAttempt) =>
   String(attempt.question?.question_text ?? attempt.question?.questionText ?? `Q${attempt.question_id ?? attempt.questionId ?? ''}`)
 
@@ -32,10 +26,8 @@ export const get_bookmark_question_id = (bookmark: QuizBookmark) =>
 export const get_bookmark_question_text = (bookmark: QuizBookmark) =>
   String(bookmark.question?.question_text ?? bookmark.question?.questionText ?? '')
 
-export const get_bookmark_topic_slug = (bookmark: QuizBookmark) => {
-  const topicId = Number(as_record(bookmark.question).topic_id ?? as_record(bookmark.question).topicId ?? 0)
-  return TOPIC_ID_TO_SLUG[topicId] ?? 'basic-terms'
-}
+export const get_bookmark_topic_slug = (bookmark: QuizBookmark) =>
+  String(Number(as_record(bookmark.question).topic_id ?? as_record(bookmark.question).topicId ?? 0) || 1)
 
 export function useLearnPage() {
   const navigate = useNavigate()

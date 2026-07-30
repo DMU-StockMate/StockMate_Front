@@ -70,7 +70,7 @@ export default function BookmarkListPage() {
             <i className="bi bi-heart" style={{ fontSize: 36, color: 'var(--t3)' }} />
             <div className="muted" style={{ marginTop: 14, fontSize: 14 }}>아직 찜한 문제가 없습니다.</div>
             <div style={{ marginTop: 20 }}>
-              <Button onClick={() => navigate('/learn/beginner/basic-terms')}>
+              <Button onClick={() => navigate('/learn/beginner/1')}>
                 <i className="bi bi-play-fill" />
                 문제 풀러 가기
               </Button>

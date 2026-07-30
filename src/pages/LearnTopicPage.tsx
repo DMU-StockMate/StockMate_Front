@@ -5,14 +5,15 @@ import Button from '../components/common/Button'
 import Progress from '../components/common/Progress'
 import Pill from '../components/common/Pill'
 import Chip, { ChipRow } from '../components/common/Chip'
+import Pagination from '../components/common/Pagination'
 import { useLearnTopic, type FilterType, type QuizItem } from '../hooks/useLearnTopic'
 import type { AiQuestionType } from '../api/ai'
 
 export default function LearnTopicPage() {
   const navigate = useNavigate()
   const {
-    topic, section, meta, filter, setFilter,
-    generatingType, generateError, filtered,
+    topic, section, meta, sectionLabel, filter, setFilter,
+    generatingType, generateError, filtered, paginated, page, totalPages, setPage,
     questionLoadError, loading,
     totalDone, wrongCount, correctCount, earned, progressPct, nextQuiz, quizzes,
     handle_quiz_click, handle_generate_question,
@@ -23,7 +24,7 @@ export default function LearnTopicPage() {
       <div className="breadcrumb">
         <span className="bc-link" onClick={() => navigate('/learn')}>투자학습</span>
         <span className="bc-sep">›</span>
-        <span className="bc-link" onClick={() => navigate(`/learn/${section}`)}>{meta.sectionLabel}</span>
+        <span className="bc-link" onClick={() => navigate(`/learn/${section}`)}>{sectionLabel}</span>
         <span className="bc-sep">›</span>
         <span className="bc-current">{meta.title}</span>
       </div>
@@ -35,7 +36,7 @@ export default function LearnTopicPage() {
           </div>
           <div>
             <h1>{meta.title}</h1>
-            <div className="page-sub">{meta.sectionLabel} · {quizzes.length}문제</div>
+            <div className="page-sub">{sectionLabel} · {quizzes.length}문제</div>
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -97,7 +98,7 @@ export default function LearnTopicPage() {
             <Chip key={f} active={filter === f} onClick={() => setFilter(f)}>{f}</Chip>
           ))}
         </ChipRow>
-        <span className="muted" style={{ fontSize: 12 }}>실제 문제 API 기준</span>
+        <span className="muted" style={{ fontSize: 12 }}>전체 {filtered.length}문제 중 {paginated.length}개 표시</span>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
@@ -111,7 +112,7 @@ export default function LearnTopicPage() {
             <div className="muted">표시할 문제가 없습니다.</div>
           </Card>
         )}
-        {!loading && filtered.map((quiz: QuizItem) => (
+        {!loading && paginated.map((quiz: QuizItem) => (
           <div
             key={quiz.id}
             className={`quiz-mini ${quiz.status === 'done' ? 'done' : ''} ${quiz.status === 'current' ? 'current' : ''}`}
@@ -130,6 +131,10 @@ export default function LearnTopicPage() {
           </div>
         ))}
       </div>
+
+      {!loading && filtered.length > 0 && (
+        <Pagination page={page} totalPages={totalPages} onChange={setPage} />
+      )}
     </AppLayout>
   )
 }

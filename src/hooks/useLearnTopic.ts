@@ -5,10 +5,11 @@ import {
   api_get_bookmarks,
   api_get_histories,
   api_get_questions,
+  api_get_topics,
   api_get_wrong_notes,
+  type LearningTopic,
   type QuizAttempt,
   type QuizBookmark,
-  type QuizChoice,
 } from '../api/learning'
 import { as_record, get_array } from '../utils/normalize'
 
@@ -26,37 +27,28 @@ export interface QuizItem {
 export interface TopicMeta {
   icon: string
   title: string
-  sectionLabel: string
+  desc: string
 }
 
 export type FilterType = '전체' | '미완료' | '완료' | '오답' | '찜'
 
-const TOPIC_META: Record<string, TopicMeta> = {
-  'basic-terms': { icon: 'bi-book', title: '기초 용어', sectionLabel: '초급 학습' },
-  'chart-basics': { icon: 'bi-graph-up-arrow', title: '차트 기초', sectionLabel: '초급 학습' },
-  'market-basics': { icon: 'bi-bank', title: '시장 이해', sectionLabel: '초급 학습' },
-  'trading-basics': { icon: 'bi-cash-coin', title: '매매의 기본', sectionLabel: '초급 학습' },
-  'risk-return': { icon: 'bi-sliders', title: '위험과 수익', sectionLabel: '초급 학습' },
-  'financial-statements': { icon: 'bi-bar-chart-line', title: '재무제표 분석', sectionLabel: '중급 학습' },
-  valuation: { icon: 'bi-gem', title: '가치평가', sectionLabel: '중급 학습' },
-  'industry-analysis': { icon: 'bi-building', title: '산업 분석', sectionLabel: '중급 학습' },
-  'technical-analysis': { icon: 'bi-graph-down-arrow', title: '기술적 분석', sectionLabel: '중급 학습' },
-  'etf-fund': { icon: 'bi-folder2-open', title: 'ETF & 펀드', sectionLabel: '중급 학습' },
-  macro: { icon: 'bi-globe2', title: '거시경제 입문', sectionLabel: '중급 학습' },
+const PAGE_SIZE = 20
+
+// 백엔드 learning_topics 테이블에는 아이콘이 없어서 표시용으로만 클라이언트에서 매핑한다.
+const ICON_BY_TOPIC_ID: Record<number, string> = {
+  1: 'bi-sliders', 2: 'bi-percent', 3: 'bi-gem', 4: 'bi-bar-chart-line', 5: 'bi-graph-down-arrow',
+}
+const DEFAULT_ICON = 'bi-journal-text'
+
+export const LEVEL_LABEL: Record<string, string> = {
+  beginner: '초급 학습', intermediate: '중급 학습', advanced: '고급 학습',
 }
 
-const FALLBACK_META: TopicMeta = { icon: 'bi-journal-text', title: '학습 콘텐츠', sectionLabel: '학습' }
-
-const TOPIC_ID_MAP: Record<string, number> = {
-  'basic-terms': 1, 'chart-basics': 3, 'market-basics': 4,
-  'trading-basics': 5, 'risk-return': 6, 'financial-statements': 7,
-  valuation: 8, 'industry-analysis': 9, 'technical-analysis': 10,
-  'etf-fund': 11, macro: 12,
-}
-
-const INVESTMENT_LEVEL_ID_MAP: Record<string, number> = {
+export const INVESTMENT_LEVEL_ID_MAP: Record<string, number> = {
   beginner: 1, intermediate: 2, advanced: 3,
 }
+
+export const get_topic_icon = (topicId: number) => ICON_BY_TOPIC_ID[topicId] ?? DEFAULT_ICON
 
 const get_question_id = (raw: unknown) => {
   const item = as_record(raw)
@@ -84,21 +76,25 @@ const normalize_question = (raw: unknown): Omit<QuizItem, 'status' | 'isWrong' |
   }
 }
 
-// QuizChoice를 api/learning에서 import하지만 실제로는 타입만 사용함
-type _QuizChoice = QuizChoice
-
 export function useLearnTopic() {
-  const { section = 'beginner', topic = 'basic-terms' } = useParams<{ section: string; topic: string }>()
+  const { section = 'beginner', topic = '' } = useParams<{ section: string; topic: string }>()
   const navigate = useNavigate()
+  const topicId = Number(topic) || null
   const [filter, setFilter] = useState<FilterType>('전체')
+  const [page, setPage] = useState(1)
   const [generatingType, setGeneratingType] = useState<AiQuestionType | null>(null)
   const [generateError, setGenerateError] = useState('')
   const [quizzes, setQuizzes] = useState<QuizItem[]>([])
+  const [topicInfo, setTopicInfo] = useState<LearningTopic | null>(null)
   const [questionLoadError, setQuestionLoadError] = useState('')
   const [loading, setLoading] = useState(true)
 
-  const meta = TOPIC_META[topic] ?? FALLBACK_META
-  const mappedTopicId = TOPIC_ID_MAP[topic] ?? null
+  const sectionLabel = LEVEL_LABEL[section] ?? '학습'
+  const meta: TopicMeta = {
+    icon: topicId ? get_topic_icon(topicId) : DEFAULT_ICON,
+    title: topicInfo?.topicName ?? '학습 콘텐츠',
+    desc: topicInfo?.description ?? '',
+  }
 
   useEffect(() => {
     let alive = true
@@ -106,8 +102,10 @@ export function useLearnTopic() {
       setLoading(true)
       setQuestionLoadError('')
       try {
-        const [questionsRes, historiesRes, wrongRes, bookmarkRes] = await Promise.allSettled([
-          api_get_questions(),
+        const levelId = INVESTMENT_LEVEL_ID_MAP[section] ?? 1
+        const [topicsRes, questionsRes, historiesRes, wrongRes, bookmarkRes] = await Promise.allSettled([
+          api_get_topics(),
+          api_get_questions({ topicId: topicId ?? undefined, investmentLevelId: levelId }),
           api_get_histories(),
           api_get_wrong_notes(),
           api_get_bookmarks(),
@@ -133,7 +131,6 @@ export function useLearnTopic() {
         const normalized = get_array(questionsRes.value.data)
           .map(normalize_question)
           .filter((item): item is Omit<QuizItem, 'status' | 'isWrong' | 'isBookmarked'> => item !== null)
-          .filter((item) => !mappedTopicId || item.topicId === mappedTopicId)
           .sort((a, b) => a.id - b.id)
 
         const firstPendingId = normalized.find((item) => !doneIds.has(item.id))?.id ?? null
@@ -146,6 +143,9 @@ export function useLearnTopic() {
 
         if (!alive) return
         setQuizzes(nextQuizzes)
+        if (topicsRes.status === 'fulfilled') {
+          setTopicInfo(topicsRes.value.data.find((t) => t.topicId === topicId) ?? null)
+        }
       } catch {
         if (!alive) return
         setQuizzes([])
@@ -155,8 +155,9 @@ export function useLearnTopic() {
       }
     }
     void load()
+    setPage(1)
     return () => { alive = false }
-  }, [mappedTopicId])
+  }, [topicId, section])
 
   const filtered = quizzes.filter((q) => {
     if (filter === '전체') return true
@@ -166,6 +167,15 @@ export function useLearnTopic() {
     if (filter === '찜') return q.isBookmarked
     return true
   })
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages)
+  const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+
+  const handle_filter_change = (next: FilterType) => {
+    setFilter(next)
+    setPage(1)
+  }
 
   const totalDone = useMemo(() => quizzes.filter((q) => q.status === 'done').length, [quizzes])
   const wrongCount = useMemo(() => quizzes.filter((q) => q.isWrong).length, [quizzes])
@@ -191,7 +201,7 @@ export function useLearnTopic() {
     try {
       const { data } = await api_generate_from_wrong_notes({
         questionIds: wrongQuestionIds,
-        topicId: mappedTopicId ?? undefined,
+        topicId: topicId ?? undefined,
         investmentLevelId: INVESTMENT_LEVEL_ID_MAP[section] ?? 1,
         questionType,
       })
@@ -206,8 +216,9 @@ export function useLearnTopic() {
   }
 
   return {
-    topic, section, meta, filter, setFilter,
-    generatingType, generateError, quizzes, filtered,
+    topic, section, meta, sectionLabel, filter, setFilter: handle_filter_change,
+    generatingType, generateError, quizzes, filtered, paginated,
+    page: currentPage, totalPages, setPage,
     questionLoadError, loading,
     totalDone, wrongCount, correctCount, earned, progressPct, nextQuiz,
     handle_quiz_click, handle_generate_question,

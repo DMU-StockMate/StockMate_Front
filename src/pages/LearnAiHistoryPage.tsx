@@ -67,7 +67,7 @@ export default function LearnAiHistoryPage() {
                   <p>{format_relative_time(activeSession.updatedAt || activeSession.createdAt)}</p>
                 </div>
                 {activeSession.questionId && (
-                  <Button size="sm" onClick={() => navigate(`/learn/quiz/basic-terms/${activeSession.questionId}`)}>
+                  <Button size="sm" onClick={() => navigate(`/learn/quiz/1/${activeSession.questionId}`)}>
                     <i className="bi bi-box-arrow-up-right" />
                     문제 보기
                   </Button>

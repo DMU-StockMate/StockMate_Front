@@ -21,11 +21,11 @@ const pillVariantForStatus: Record<'active' | 'not-started', 'primary' | 'gray'>
 export default function LearnLevelPage() {
   const navigate = useNavigate()
   const {
-    section, meta, filter, setFilter,
+    meta, filter, setFilter,
     backendQuestions, filteredTopics,
     stats, questionLoadError, loading,
     solvedCount, progressPct, earned,
-    handle_topic_click, handle_question_click,
+    handle_topic_click,
   } = useLearnLevel()
 
   return (
@@ -72,41 +72,15 @@ export default function LearnLevelPage() {
         <Progress value={progressPct} style={{ marginTop: 18 }} />
       </Card>
 
-      <div style={{ marginBottom: 28 }}>
-        <div className="row" style={{ marginBottom: 14 }}>
-          <div className="section-title" style={{ marginBottom: 0 }}>등록 문제 {backendQuestions.length}개</div>
-          {questionLoadError && <span className="muted" style={{ fontSize: 12 }}>{questionLoadError}</span>}
+      {questionLoadError && (
+        <div className="ai-block" style={{ marginBottom: 20 }}>
+          <span className="ai-tag">알림</span>
+          <span style={{ fontSize: 14 }}>{questionLoadError}</span>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
-          {loading && (
-            <Card style={{ gridColumn: '1 / -1' }}>
-              <div className="muted">문제 목록을 불러오는 중입니다.</div>
-            </Card>
-          )}
-          {!loading && backendQuestions.map((question) => (
-            <div
-              key={question.id}
-              className={`quiz-mini ${question.solved ? 'done' : 'available'}`}
-              onClick={() => handle_question_click(question.id)}
-            >
-              <div className="qm-num">Q{question.id} · {question.type === 'OX' ? 'OX' : '객관식'}</div>
-              <div className="qm-q">{question.question}</div>
-              <div className="qm-foot">
-                <span>{question.solved ? '풀이 완료' : '미완료'}</span>
-                <Pill variant={question.solved ? 'success' : 'primary'}>+{question.reward.toLocaleString()}원</Pill>
-              </div>
-            </div>
-          ))}
-          {!loading && backendQuestions.length === 0 && (
-            <Card style={{ gridColumn: '1 / -1' }}>
-              <div className="muted">아직 표시할 문제가 없습니다.</div>
-            </Card>
-          )}
-        </div>
-      </div>
+      )}
 
       <div className="row" style={{ marginBottom: 14 }}>
-        <div className="section-title" style={{ marginBottom: 0 }}>대주제 {meta.topics.length}개</div>
+        <div className="section-title" style={{ marginBottom: 0 }}>카테고리 {filteredTopics.length}개</div>
         <ChipRow>
           {(['전체', '진행 중', '미시작'] as FilterType[]).map((f) => (
             <Chip key={f} active={filter === f} onClick={() => setFilter(f as '전체' | '진행 중' | '미시작')}>{f}</Chip>
@@ -114,8 +88,12 @@ export default function LearnLevelPage() {
         </ChipRow>
       </div>
 
+      {loading && (
+        <Card><div className="muted">카테고리를 불러오는 중입니다.</div></Card>
+      )}
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 18 }}>
-        {filteredTopics.map((topic) => (
+        {!loading && filteredTopics.map((topic) => (
           <div
             key={topic.id}
             className="topic-card"
@@ -131,9 +109,9 @@ export default function LearnLevelPage() {
               <div className="topic-title">{topic.title}</div>
               <div className="topic-desc">{topic.desc}</div>
             </div>
-            <Progress value={0} max={1} thin />
+            <Progress value={topic.count > 0 ? Math.round((topic.solvedCount / topic.count) * 100) : 0} max={100} thin />
             <div className="topic-stats">
-              <span>문제 API 기준으로 목록을 표시합니다.</span>
+              <span>{topic.count}문제 · 완료 {topic.solvedCount}개</span>
             </div>
           </div>
         ))}

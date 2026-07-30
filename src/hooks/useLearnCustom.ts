@@ -81,7 +81,7 @@ export function useLearnCustom() {
   const wrongNoteCount = questions.filter((q) => q.sourceType === 'WRONG_NOTE').length
   const promptCount = questions.filter((q) => q.sourceType === 'PROMPT').length
 
-  const handle_question_click = (questionId: number) => navigate(`/learn/quiz/basic-terms/${questionId}`)
+  const handle_question_click = (questionId: number) => navigate(`/learn/quiz/1/${questionId}`)
 
   return {
     mode, setMode,

@@ -79,11 +79,19 @@ export interface LearningStatistics {
 export interface GetQuestionsParams {
   topicId?: number
   investmentLevelId?: number
-  categoryId?: number
+}
+
+export interface LearningTopic {
+  topicId: number
+  topicName: string
+  description: string | null
 }
 
 export const api_get_questions = (params?: GetQuestionsParams) =>
   api.get<QuizQuestion[]>('/learning/questions', params ? { params } : undefined)
+
+export const api_get_topics = () =>
+  api.get<LearningTopic[]>('/learning/topics')
 
 export const api_get_questions_by_topic = (topicId: number) =>
   api.get<QuizQuestion[]>('/learning/questions', { params: { topicId } })

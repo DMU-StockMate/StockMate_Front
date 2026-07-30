@@ -216,7 +216,7 @@ export default function DashboardPage() {
                 style={{ padding: 14, border: '1px solid var(--border)', borderRadius: 12, cursor: 'pointer', transition: 'border-color 0.15s' }}
                 onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--primary-soft)')}
                 onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}
-                onClick={() => navigate(`/learn/quiz/basic-terms/${r.id}`)}
+                onClick={() => navigate(`/learn/quiz/1/${r.id}`)}
               >
                 <div className="row">
                   <Pill variant="gray">{r.tag}</Pill>

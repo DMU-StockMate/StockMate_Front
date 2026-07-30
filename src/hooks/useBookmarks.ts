@@ -5,12 +5,6 @@ import { as_record, get_array } from '../utils/normalize'
 
 export type BookmarkSortType = '최신순' | '난이도순'
 
-const TOPIC_ID_TO_SLUG: Record<number, string> = {
-  1: 'basic-terms', 3: 'chart-basics', 4: 'market-basics', 5: 'trading-basics',
-  6: 'risk-return', 7: 'financial-statements', 8: 'valuation', 9: 'industry-analysis',
-  10: 'technical-analysis', 11: 'etf-fund', 12: 'macro',
-}
-
 const DIFFICULTY_ORDER = { '쉬움': 1, '보통': 2, '어려움': 3 } as const
 
 export const get_bookmark_question_id = (bookmark: QuizBookmark) =>
@@ -19,10 +13,8 @@ export const get_bookmark_question_id = (bookmark: QuizBookmark) =>
 export const get_bookmark_question_text = (bookmark: QuizBookmark) =>
   String(bookmark.question?.question_text ?? bookmark.question?.questionText ?? '')
 
-export const get_bookmark_topic_slug = (bookmark: QuizBookmark) => {
-  const topicId = Number(as_record(bookmark.question).topic_id ?? as_record(bookmark.question).topicId ?? 0)
-  return TOPIC_ID_TO_SLUG[topicId] ?? 'basic-terms'
-}
+export const get_bookmark_topic_slug = (bookmark: QuizBookmark) =>
+  String(Number(as_record(bookmark.question).topic_id ?? as_record(bookmark.question).topicId ?? 0) || 1)
 
 export const get_bookmark_question_type = (bookmark: QuizBookmark) =>
   String(bookmark.question?.question_type ?? bookmark.question?.questionType ?? 'MULTIPLE_CHOICE')

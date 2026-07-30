@@ -88,7 +88,7 @@ export default function LearnPage() {
           <Progress value={stats?.total ?? 0} max={Math.max(questionCount, 1)} style={{ marginTop: 16 }} />
           <div className="row" style={{ marginTop: 10 }}>
             <span className="muted" style={{ fontSize: 12 }}>풀이 진행률</span>
-            <Button size="sm" onClick={() => navigate('/learn/beginner/basic-terms')}>
+            <Button size="sm" onClick={() => navigate('/learn/beginner/1')}>
               <i className="bi bi-play-fill" />
               학습 시작
             </Button>
