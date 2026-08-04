@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { api_generate_from_wrong_notes, type AiQuestionType } from '../api/ai'
 import {
   api_get_bookmarks,
   api_get_histories,
@@ -82,8 +81,6 @@ export function useLearnTopic() {
   const topicId = Number(topic) || null
   const [filter, setFilter] = useState<FilterType>('전체')
   const [page, setPage] = useState(1)
-  const [generatingType, setGeneratingType] = useState<AiQuestionType | null>(null)
-  const [generateError, setGenerateError] = useState('')
   const [quizzes, setQuizzes] = useState<QuizItem[]>([])
   const [topicInfo, setTopicInfo] = useState<LearningTopic | null>(null)
   const [questionLoadError, setQuestionLoadError] = useState('')
@@ -189,38 +186,12 @@ export function useLearnTopic() {
 
   const handle_quiz_click = (quiz: QuizItem) => navigate(`/learn/quiz/${topic}/${quiz.id}`)
 
-  const handle_generate_question = async (questionType: AiQuestionType) => {
-    const wrongQuestionIds = quizzes.filter((q) => q.isWrong).map((q) => q.id).slice(0, 50)
-    if (wrongQuestionIds.length === 0) {
-      setGenerateError('아직 이 주제에서 틀린 문제가 없습니다. 문제를 먼저 풀어본 뒤 다시 시도해주세요.')
-      return
-    }
-
-    setGeneratingType(questionType)
-    setGenerateError('')
-    try {
-      const { data } = await api_generate_from_wrong_notes({
-        questionIds: wrongQuestionIds,
-        topicId: topicId ?? undefined,
-        investmentLevelId: INVESTMENT_LEVEL_ID_MAP[section] ?? 1,
-        questionType,
-      })
-      const generated = data.questions[0]
-      if (!generated) throw new Error('empty batch')
-      navigate(`/learn/quiz/${topic}/${generated.questionId}`)
-    } catch {
-      setGenerateError('AI 문제 생성에 실패했습니다. 백엔드 AI 서버 상태를 확인해주세요.')
-    } finally {
-      setGeneratingType(null)
-    }
-  }
-
   return {
     topic, section, meta, sectionLabel, filter, setFilter: handle_filter_change,
-    generatingType, generateError, quizzes, filtered, paginated,
+    quizzes, filtered, paginated,
     page: currentPage, totalPages, setPage,
     questionLoadError, loading,
     totalDone, wrongCount, correctCount, earned, progressPct, nextQuiz,
-    handle_quiz_click, handle_generate_question,
+    handle_quiz_click,
   }
 }

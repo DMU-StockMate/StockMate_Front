@@ -113,7 +113,7 @@ export function useQuiz() {
       setLoading(true)
       setError('')
       try {
-        const { data } = await api_get_questions()
+        const { data } = await api_get_questions({ topicId: Number(topicId) })
         const loaded = get_array(data)
           .map(normalize_question)
           .filter((item): item is QuizItem => item !== null)

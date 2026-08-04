@@ -14,6 +14,7 @@ import {
   get_bookmark_question_text,
   get_bookmark_topic_slug,
 } from '../hooks/useLearnPage'
+import { INVESTMENT_LEVEL_ID_MAP } from '../hooks/useLearnTopic'
 
 const LEVELS = [
   {
@@ -42,8 +43,8 @@ export default function LearnPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const {
-    stats, questionCount, bookmarks, recentHistories,
-    loading, accuracy, progressValue, remainingForNextLevel,
+    stats, questionCount, levelQuestionCounts, bookmarks, recentHistories,
+    loading, accuracy, progressValue, remainingForNextLevel, streakDays,
     handle_navigate_bookmark,
   } = useLearnPage()
 
@@ -54,12 +55,16 @@ export default function LearnPage() {
           <h1>투자학습</h1>
           <div className="page-sub">수준에 맞춘 학습 코스를 선택해 자금을 모아보세요</div>
         </div>
-        <Button variant="outline">등급 재진단</Button>
+        <Button variant="outline" onClick={() => navigate('/onboarding/investment-profile')}>등급 재진단</Button>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 20, marginBottom: 24 }}>
-        <Card variant="hero" className="card-lg">
-          <div className="row">
+        <Card
+          variant="hero"
+          className="card-lg"
+          style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}
+        >
+          <div className="row" style={{ alignItems: 'flex-start' }}>
             <div>
               <Pill variant="outline-light">현재 등급</Pill>
               <div style={{ fontSize: 28, fontWeight: 800, marginTop: 12 }}>
@@ -68,14 +73,21 @@ export default function LearnPage() {
               <div style={{ opacity: 0.85, marginTop: 4 }}>
                 누적 {stats?.total ?? 0}문제 · 정답 {stats?.correct ?? 0}문제
               </div>
+              {streakDays > 0 && (
+                <div style={{ opacity: 0.85, marginTop: 4, fontSize: 13 }}>
+                  <i className="bi bi-fire" /> {streakDays}일 연속 학습 중
+                </div>
+              )}
             </div>
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: 12, opacity: 0.8 }}>다음 등급까지</div>
               <div style={{ fontSize: 24, fontWeight: 800, marginTop: 4 }}>{remainingForNextLevel}문제</div>
             </div>
           </div>
-          <Progress value={progressValue} variant="hero" style={{ marginTop: 18 }} />
-          <div style={{ opacity: 0.85, fontSize: 12, marginTop: 8 }}>실제 학습 통계 API 기준</div>
+          <div>
+            <Progress value={progressValue} variant="hero" style={{ marginTop: 18 }} />
+            <div style={{ opacity: 0.85, fontSize: 12, marginTop: 8 }}>실제 학습 통계 API 기준</div>
+          </div>
         </Card>
 
         <Card>
@@ -124,8 +136,9 @@ export default function LearnPage() {
               {lv.tags.map((tag) => <span key={tag} className="lv-tag">{tag}</span>)}
             </div>
             <div className="lv-foot">
-              <span>{questionCount}문제</span>
-              <span className="pct" style={{ color: 'var(--primary)' }}>API 연동</span>
+              <span>
+                {lv.id === 'custom' ? 'AI 실시간 생성' : `${levelQuestionCounts[INVESTMENT_LEVEL_ID_MAP[lv.id]] ?? 0}문제`}
+              </span>
             </div>
           </div>
         ))}

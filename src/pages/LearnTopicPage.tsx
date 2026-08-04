@@ -7,16 +7,15 @@ import Pill from '../components/common/Pill'
 import Chip, { ChipRow } from '../components/common/Chip'
 import Pagination from '../components/common/Pagination'
 import { useLearnTopic, type FilterType, type QuizItem } from '../hooks/useLearnTopic'
-import type { AiQuestionType } from '../api/ai'
 
 export default function LearnTopicPage() {
   const navigate = useNavigate()
   const {
     topic, section, meta, sectionLabel, filter, setFilter,
-    generatingType, generateError, filtered, paginated, page, totalPages, setPage,
+    filtered, paginated, page, totalPages, setPage,
     questionLoadError, loading,
     totalDone, wrongCount, correctCount, earned, progressPct, nextQuiz, quizzes,
-    handle_quiz_click, handle_generate_question,
+    handle_quiz_click,
   } = useLearnTopic()
 
   return (
@@ -40,22 +39,6 @@ export default function LearnTopicPage() {
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <Button
-            variant="outline"
-            onClick={() => void handle_generate_question('OX' as AiQuestionType)}
-            disabled={generatingType !== null}
-          >
-            <i className="bi bi-stars" />
-            {generatingType === 'OX' ? '생성 중...' : 'AI OX 생성'}
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => void handle_generate_question('MULTIPLE_CHOICE' as AiQuestionType)}
-            disabled={generatingType !== null}
-          >
-            <i className="bi bi-magic" />
-            {generatingType === 'MULTIPLE_CHOICE' ? '생성 중...' : 'AI 객관식 생성'}
-          </Button>
           <Button variant="outline" disabled={!nextQuiz} onClick={() => nextQuiz && navigate(`/learn/quiz/${topic}/${nextQuiz.id}`)}>
             한 번에 풀기
           </Button>
@@ -65,10 +48,10 @@ export default function LearnTopicPage() {
         </div>
       </div>
 
-      {(generateError || questionLoadError) && (
+      {questionLoadError && (
         <div className="ai-block" style={{ marginBottom: 20 }}>
           <span className="ai-tag">알림</span>
-          <span style={{ fontSize: 14 }}>{generateError || questionLoadError}</span>
+          <span style={{ fontSize: 14 }}>{questionLoadError}</span>
         </div>
       )}
 
@@ -115,7 +98,7 @@ export default function LearnTopicPage() {
         {!loading && paginated.map((quiz: QuizItem) => (
           <div
             key={quiz.id}
-            className={`quiz-mini ${quiz.status === 'done' ? 'done' : ''} ${quiz.status === 'current' ? 'current' : ''}`}
+            className={`quiz-mini ${quiz.status === 'done' ? 'done' : ''} ${quiz.status === 'current' ? 'current' : ''} ${quiz.isWrong ? 'wrong' : ''}`}
             onClick={() => handle_quiz_click(quiz)}
           >
             <div className="qm-num" style={quiz.status === 'current' ? { color: 'var(--accent)' } : {}}>
@@ -124,8 +107,10 @@ export default function LearnTopicPage() {
             <div className="qm-q">{quiz.question}</div>
             <div className="qm-foot">
               <span>{quiz.difficulty}</span>
-              <Pill variant={quiz.status === 'done' ? 'success' : 'primary'}>
-                +{quiz.reward.toLocaleString()}원
+              <Pill variant={quiz.status !== 'done' ? 'primary' : quiz.isWrong ? 'up' : 'success'}>
+                {quiz.status === 'done' && quiz.isWrong
+                  ? `미획득 · ${quiz.reward.toLocaleString()}원`
+                  : `+${quiz.reward.toLocaleString()}원`}
               </Pill>
             </div>
           </div>

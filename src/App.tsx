@@ -6,6 +6,7 @@ import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
 import DashboardPage from './pages/DashboardPage'
 import LearnPage from './pages/LearnPage'
+import OnboardingInvestmentProfilePage from './pages/OnboardingInvestmentProfilePage'
 import LearnAiHistoryPage from './pages/LearnAiHistoryPage'
 import LearnLevelPage from './pages/LearnLevelPage'
 import LearnCustomPage from './pages/LearnCustomPage'
@@ -45,6 +46,7 @@ export default function App() {
 
         <Route element={<ProtectedRoute />}>
           <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/onboarding/investment-profile" element={<OnboardingInvestmentProfilePage />} />
           <Route path="/community/write" element={<CommunityPostWritePage />} />
           <Route path="/community/:postId/edit" element={<CommunityPostWritePage />} />
           <Route path="/learn" element={<LearnPage />} />

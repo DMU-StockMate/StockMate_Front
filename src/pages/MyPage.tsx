@@ -1,41 +1,25 @@
-import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../hooks/useAuth'
 import AppLayout from '../components/layout/AppLayout'
 import Card from '../components/common/Card'
 import Button from '../components/common/Button'
 import Pill from '../components/common/Pill'
 import Progress from '../components/common/Progress'
-import { api_logout } from '../api/auth'
-import { api_get_statistics, type LearningStatistics } from '../api/learning'
+import { useMyPage } from '../hooks/useMyPage'
 
 const MENU = [
   { icon: 'bi-person-gear', label: '개인정보 변경', path: '/mypage/edit' },
+  { icon: 'bi-bar-chart-line', label: '투자성향·학습 수준 재진단', path: '/onboarding/investment-profile' },
   { icon: 'bi-heart', label: '찜한 문제', path: '/learn/bookmarks' },
   { icon: 'bi-clock-history', label: '모의투자 내역', path: '/trade/history' },
   { icon: 'bi-gear', label: '설정' },
 ]
 
 export default function MyPage() {
-  const { user, logout } = useAuth()
   const navigate = useNavigate()
-  const [stats, setStats] = useState<LearningStatistics | null>(null)
-
-  useEffect(() => {
-    api_get_statistics()
-      .then(({ data }) => setStats(data))
-      .catch(() => {})
-  }, [])
-
-  const handle_logout = async () => {
-    try {
-      await api_logout()
-    } catch {
-      // 서버 에러와 관계없이 로컬 상태 정리
-    }
-    logout()
-    navigate('/login')
-  }
+  const {
+    user, stats, streakDays, riskTypeLabel,
+    handle_logout,
+  } = useMyPage()
 
   return (
     <AppLayout topbarPlaceholder="검색">
@@ -57,9 +41,16 @@ export default function MyPage() {
                 {user?.nickname && (
                   <div className="muted" style={{ marginTop: 2, fontSize: 12 }}>@{user.nickname}</div>
                 )}
-                <div style={{ marginTop: 8, display: 'flex', gap: 6 }}>
+                <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   <Pill>{user?.level ?? '초급 Lv.1'}</Pill>
-                  <Pill variant="accent">7일 연속 학습 중</Pill>
+                  {riskTypeLabel ? (
+                    <Pill variant="gray">{riskTypeLabel}</Pill>
+                  ) : (
+                    <Pill variant="gray" style={{ cursor: 'pointer' }} onClick={() => navigate('/onboarding/investment-profile')}>
+                      투자성향 진단하기
+                    </Pill>
+                  )}
+                  {streakDays > 0 && <Pill variant="accent">{streakDays}일 연속 학습 중</Pill>}
                 </div>
               </div>
             </div>

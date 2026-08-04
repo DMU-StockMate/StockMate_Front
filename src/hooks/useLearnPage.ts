@@ -8,8 +8,10 @@ import {
   type LearningStatistics,
   type QuizAttempt,
   type QuizBookmark,
+  type QuizQuestion,
 } from '../api/learning'
 import { as_record, get_array } from '../utils/normalize'
+import { calc_streak_days } from '../utils/streak'
 
 export const get_attempt_question_text = (attempt: QuizAttempt) =>
   String(attempt.question?.question_text ?? attempt.question?.questionText ?? `Q${attempt.question_id ?? attempt.questionId ?? ''}`)
@@ -32,7 +34,7 @@ export const get_bookmark_topic_slug = (bookmark: QuizBookmark) =>
 export function useLearnPage() {
   const navigate = useNavigate()
   const [stats, setStats] = useState<LearningStatistics | null>(null)
-  const [questionCount, setQuestionCount] = useState(0)
+  const [questions, setQuestions] = useState<QuizQuestion[]>([])
   const [histories, setHistories] = useState<QuizAttempt[]>([])
   const [bookmarks, setBookmarks] = useState<QuizBookmark[]>([])
   const [loading, setLoading] = useState(true)
@@ -50,7 +52,7 @@ export function useLearnPage() {
         ])
         if (!alive) return
         if (statsRes.status === 'fulfilled') setStats(statsRes.value.data)
-        if (questionsRes.status === 'fulfilled') setQuestionCount(get_array(questionsRes.value.data).length)
+        if (questionsRes.status === 'fulfilled') setQuestions(get_array(questionsRes.value.data) as QuizQuestion[])
         if (historiesRes.status === 'fulfilled') setHistories(get_array(historiesRes.value.data) as QuizAttempt[])
         if (bookmarksRes.status === 'fulfilled') setBookmarks(get_array(bookmarksRes.value.data) as QuizBookmark[])
       } finally {
@@ -65,6 +67,18 @@ export function useLearnPage() {
   const accuracy = stats?.accuracy ?? 0
   const progressValue = Math.min(100, accuracy)
   const remainingForNextLevel = Math.max(0, 50 - (stats?.correct ?? 0))
+  const streakDays = useMemo(() => calc_streak_days(histories), [histories])
+
+  const questionCount = questions.length
+  const levelQuestionCounts = useMemo(() => {
+    const counts: Record<number, number> = {}
+    questions.forEach((q) => {
+      const levelId = Number(q.investment_level_id ?? q.investmentLevelId ?? 0)
+      if (!levelId) return
+      counts[levelId] = (counts[levelId] ?? 0) + 1
+    })
+    return counts
+  }, [questions])
 
   const handle_navigate_bookmark = (bookmark: QuizBookmark) => {
     const questionId = get_bookmark_question_id(bookmark)
@@ -74,8 +88,8 @@ export function useLearnPage() {
   }
 
   return {
-    stats, questionCount, histories, bookmarks,
-    recentHistories, loading, accuracy, progressValue, remainingForNextLevel,
+    stats, questionCount, levelQuestionCounts, histories, bookmarks,
+    recentHistories, loading, accuracy, progressValue, remainingForNextLevel, streakDays,
     handle_navigate_bookmark,
   }
 }

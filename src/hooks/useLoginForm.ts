@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from './useAuth'
 import { validateEmail, validatePassword } from '../utils/validation'
 import { api_login, api_me } from '../api/auth'
+import { api_get_investment_profile } from '../api/investmentProfile'
 
 interface LoginErrors {
   email?: string
@@ -50,7 +51,8 @@ export function useLoginForm() {
         },
         tokens.accessToken,
       )
-      navigate(from, { replace: true })
+      const diagnosed = await api_get_investment_profile().then(() => true).catch(() => false)
+      navigate(diagnosed ? from : '/onboarding/investment-profile', { replace: true })
     } catch (err: any) {
       const msg = err?.response?.data?.message ?? '이메일 또는 비밀번호가 올바르지 않습니다.'
       setErrors({ general: msg })
