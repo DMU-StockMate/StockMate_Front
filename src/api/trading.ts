@@ -62,6 +62,18 @@ export interface TradeResult {
   } | null
 }
 
+export interface RankingUser {
+  rank: number
+  userId: number
+  nickname: string
+  profileImageUrl?: string | null
+  totalAssetValue: string
+  cashBalance?: string
+  seedMoney: string
+  growthAmount?: string
+  growthRate?: string
+}
+
 export const api_get_trading_account = () =>
   api.get<TradingAccount>('/trading/account')
 
@@ -76,3 +88,9 @@ export const api_buy_stock = (data: CreateTradeRequest) =>
 
 export const api_sell_stock = (data: CreateTradeRequest) =>
   api.post<TradeResult>('/trading/sell', data)
+
+export const api_get_asset_rankings = (params?: { limit?: number }) =>
+  api.get<RankingUser[]>('/trading/rankings/assets', { params })
+
+export const api_get_weekly_growth_rankings = (params?: { limit?: number }) =>
+  api.get<RankingUser[]>('/trading/rankings/weekly-growth', { params })
