@@ -14,7 +14,7 @@ export const get_bookmark_question_text = (bookmark: QuizBookmark) =>
   String(bookmark.question?.question_text ?? bookmark.question?.questionText ?? '')
 
 export const get_bookmark_topic_slug = (bookmark: QuizBookmark) =>
-  String(Number(as_record(bookmark.question).topic_id ?? as_record(bookmark.question).topicId ?? 0) || 1)
+  String(Number(as_record(bookmark.question).category_id ?? as_record(bookmark.question).categoryId ?? as_record(bookmark.question).topic_id ?? as_record(bookmark.question).topicId ?? 0) || 1)
 
 export const get_bookmark_question_type = (bookmark: QuizBookmark) =>
   String(bookmark.question?.question_type ?? bookmark.question?.questionType ?? 'MULTIPLE_CHOICE')

@@ -60,7 +60,7 @@ const normalize_question = (raw: unknown): QuizItem | null => {
     options: choices.map((c, i) => String(c.choice_text ?? c.text ?? `선택지 ${i + 1}`)),
     choiceIds: choices.map(get_choice_id),
     correctIndex,
-    tag: String(question.topicName ?? question.topic ?? '투자 학습'),
+    tag: String(as_record(question.category).category_name ?? as_record(question.category).categoryName ?? question.topicName ?? question.topic ?? '투자 학습'),
     difficulty: levelId > 2 ? '어려움' : levelId > 1 ? '보통' : '쉬움',
     reward: Number(question.reward_cash ?? question.rewardCash ?? 0),
     explanation: typeof question.explanation === 'string' ? question.explanation : null,
@@ -113,7 +113,7 @@ export function useQuiz() {
       setLoading(true)
       setError('')
       try {
-        const { data } = await api_get_questions({ topicId: Number(topicId) })
+        const { data } = await api_get_questions({ categoryId: Number(topicId) })
         const loaded = get_array(data)
           .map(normalize_question)
           .filter((item): item is QuizItem => item !== null)

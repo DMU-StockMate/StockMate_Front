@@ -102,7 +102,7 @@ export default function LearnTopicPage() {
             onClick={() => handle_quiz_click(quiz)}
           >
             <div className="qm-num" style={quiz.status === 'current' ? { color: 'var(--accent)' } : {}}>
-              Q{quiz.id}{quiz.status === 'current' ? ' · 다음 문제' : ''}
+              Q{Math.max(1, quizzes.findIndex((item) => item.id === quiz.id) + 1)}{quiz.status === 'current' ? ' · 다음 문제' : ''}
             </div>
             <div className="qm-q">{quiz.question}</div>
             <div className="qm-foot">

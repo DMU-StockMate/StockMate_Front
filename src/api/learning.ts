@@ -17,8 +17,16 @@ export interface QuizQuestion {
   questionId?: number
   topic_id?: number
   topicId?: number
+  category_id?: number | null
+  categoryId?: number | null
   investment_level_id?: number | null
   investmentLevelId?: number | null
+  category?: {
+    category_id?: number
+    categoryId?: number
+    category_name?: string
+    categoryName?: string
+  } | null
   question_type?: string
   questionType?: string
   question_text?: string
@@ -78,12 +86,17 @@ export interface LearningStatistics {
 
 export interface GetQuestionsParams {
   topicId?: number
+  categoryId?: number
   investmentLevelId?: number
 }
 
 export interface LearningTopic {
   topicId: number
+  categoryId?: number
+  investmentLevelId?: number
+  investment_level_id?: number
   topicName: string
+  categoryName?: string
   description: string | null
 }
 
@@ -94,7 +107,7 @@ export const api_get_topics = () =>
   api.get<LearningTopic[]>('/learning/topics')
 
 export const api_get_questions_by_topic = (topicId: number) =>
-  api.get<QuizQuestion[]>('/learning/questions', { params: { topicId } })
+  api.get<QuizQuestion[]>('/learning/questions', { params: { categoryId: topicId } })
 
 export const api_get_question = (questionId: number) =>
   api.get<QuizQuestion>(`/learning/questions/${questionId}`)

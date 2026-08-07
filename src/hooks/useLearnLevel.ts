@@ -13,7 +13,7 @@ import { get_topic_icon, INVESTMENT_LEVEL_ID_MAP } from './useLearnTopic'
 
 interface BackendQuestionItem {
   id: number
-  topicId: number | null
+  categoryId: number | null
   question: string
   type: string
   reward: number
@@ -53,7 +53,7 @@ const normalize_backend_question = (raw: unknown, solvedIds: Set<number>): Backe
   if (!id || !question) return null
   return {
     id,
-    topicId: Number(item.topic_id ?? item.topicId ?? 0) || null,
+    categoryId: Number(item.category_id ?? item.categoryId ?? item.topic_id ?? item.topicId ?? 0) || null,
     question,
     type: String(item.question_type ?? item.questionType ?? 'MULTIPLE_CHOICE'),
     reward: Number(item.reward_cash ?? item.rewardCash ?? 0),
@@ -102,7 +102,11 @@ export function useLearnLevel() {
         if (!alive) return
         setBackendQuestions(questions)
         if (topicsRes.status === 'fulfilled') {
-          setTopicList(topicsRes.value.data.map((t) => ({ id: t.topicId, title: t.topicName, desc: t.description ?? '' })))
+          setTopicList(topicsRes.value.data.map((t) => ({
+            id: t.categoryId ?? t.topicId,
+            title: t.categoryName ?? t.topicName,
+            desc: t.description ?? '',
+          })))
         }
         if (statsRes.status === 'fulfilled') setStats(statsRes.value.data)
       } catch {
@@ -117,10 +121,10 @@ export function useLearnLevel() {
     return () => { alive = false }
   }, [section])
 
-  // 카테고리는 문제가 실제로 등록된 것만 보여준다 (learning_topics에는 아직 문제가 없는 항목도 있을 수 있음).
+  // 카테고리는 quiz_categories 기준이며, 문제가 실제로 등록된 것만 보여준다.
   const topics: TopicData[] = useMemo(() => topicList
     .map((t) => {
-      const questions = backendQuestions.filter((q) => q.topicId === t.id)
+      const questions = backendQuestions.filter((q) => q.categoryId === t.id)
       const topicSolvedCount = questions.filter((q) => q.solved).length
       return {
         id: t.id,

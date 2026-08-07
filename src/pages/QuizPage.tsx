@@ -65,7 +65,7 @@ export default function QuizPage() {
             <span className="bc-sep">›</span>
             <span className="bc-link" onClick={() => navigate(`/learn/beginner/${topicId}`)}>문제 목록</span>
             <span className="bc-sep">›</span>
-            <span className="bc-current">Q{quiz.id}</span>
+            <span className="bc-current">Q{currentIndex >= 0 ? currentIndex + 1 : quiz.id}</span>
           </div>
 
           {(loading || error) && (
@@ -220,7 +220,7 @@ export default function QuizPage() {
           <header className="quiz-ai-header">
             <div>
               <div className="quiz-ai-title">AI 설명</div>
-              <div className="quiz-ai-sub">Q{quiz.id} · {format_type(quiz.type)}</div>
+              <div className="quiz-ai-sub">Q{currentIndex >= 0 ? currentIndex + 1 : quiz.id} · {format_type(quiz.type)}</div>
             </div>
             <button onClick={() => setAiOpen(false)} aria-label="AI 설명 닫기">
               <i className="bi bi-x-lg" />

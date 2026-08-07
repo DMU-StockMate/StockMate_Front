@@ -23,12 +23,18 @@ const load_topics = () => {
   return topicsPromise
 }
 
-// 카테고리는 레벨과 무관하게 전체 레벨(초/중/고)에 걸쳐 존재하므로, 검색 인덱스는 레벨 x 카테고리 조합을 모두 포함한다.
-const build_learning_index = (topics: LearningTopic[]) => Object.entries(LEVEL_META).flatMap(([section, meta]) =>
-  topics.map((topic) => ({
-    section, sectionTitle: meta.title, topicId: topic.topicId, title: topic.topicName, desc: topic.description ?? '',
-  })),
-)
+const SECTION_BY_LEVEL_ID: Record<number, string> = { 1: 'beginner', 2: 'intermediate', 3: 'advanced' }
+
+const build_learning_index = (topics: LearningTopic[]) => topics.map((topic) => {
+  const section = SECTION_BY_LEVEL_ID[Number(topic.investmentLevelId ?? topic.investment_level_id ?? 1)] ?? 'beginner'
+  return {
+    section,
+    sectionTitle: LEVEL_META[section]?.title ?? '학습',
+    topicId: topic.categoryId ?? topic.topicId,
+    title: topic.categoryName ?? topic.topicName,
+    desc: topic.description ?? '',
+  }
+})
 
 const search_learning_topics = (keyword: string, topics: LearningTopic[]): SearchResultItem[] => {
   const q = keyword.trim().toLowerCase()

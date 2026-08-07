@@ -33,7 +33,7 @@ export type FilterType = '전체' | '미완료' | '완료' | '오답' | '찜'
 
 const PAGE_SIZE = 20
 
-// 백엔드 learning_topics 테이블에는 아이콘이 없어서 표시용으로만 클라이언트에서 매핑한다.
+// 백엔드 quiz_categories 테이블에는 아이콘이 없어서 표시용으로만 클라이언트에서 매핑한다.
 const ICON_BY_TOPIC_ID: Record<number, string> = {
   1: 'bi-sliders', 2: 'bi-percent', 3: 'bi-gem', 4: 'bi-bar-chart-line', 5: 'bi-graph-down-arrow',
 }
@@ -68,7 +68,7 @@ const normalize_question = (raw: unknown): Omit<QuizItem, 'status' | 'isWrong' |
   if (!id || !question) return null
   return {
     id,
-    topicId: Number(item.topic_id ?? item.topicId ?? 0) || null,
+    topicId: Number(item.category_id ?? item.categoryId ?? item.topic_id ?? item.topicId ?? 0) || null,
     question,
     difficulty: levelId > 2 ? '어려움' : levelId > 1 ? '보통' : '쉬움',
     reward: Number(item.reward_cash ?? item.rewardCash ?? 0),
@@ -102,7 +102,7 @@ export function useLearnTopic() {
         const levelId = INVESTMENT_LEVEL_ID_MAP[section] ?? 1
         const [topicsRes, questionsRes, historiesRes, wrongRes, bookmarkRes] = await Promise.allSettled([
           api_get_topics(),
-          api_get_questions({ topicId: topicId ?? undefined, investmentLevelId: levelId }),
+          api_get_questions({ categoryId: topicId ?? undefined, investmentLevelId: levelId }),
           api_get_histories(),
           api_get_wrong_notes(),
           api_get_bookmarks(),
@@ -141,7 +141,7 @@ export function useLearnTopic() {
         if (!alive) return
         setQuizzes(nextQuizzes)
         if (topicsRes.status === 'fulfilled') {
-          setTopicInfo(topicsRes.value.data.find((t) => t.topicId === topicId) ?? null)
+          setTopicInfo(topicsRes.value.data.find((t) => (t.categoryId ?? t.topicId) === topicId) ?? null)
         }
       } catch {
         if (!alive) return
