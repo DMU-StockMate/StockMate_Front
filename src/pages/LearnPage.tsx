@@ -105,7 +105,11 @@ export default function LearnPage() {
               학습 시작
             </Button>
           </div>
-          <Button variant="outline" size="sm" style={{ width: '100%', marginTop: 10 }} onClick={() => navigate('/learn/ai-history')}>
+          <Button variant="outline" size="sm" style={{ width: '100%', marginTop: 10 }} onClick={() => navigate('/learn/concepts')}>
+            <i className="bi bi-journal-text" />
+            개념정리 보기
+          </Button>
+          <Button variant="outline" size="sm" style={{ width: '100%', marginTop: 8 }} onClick={() => navigate('/learn/ai-history')}>
             <i className="bi bi-chat-square-text" />
             AI 질문 기록 보기
           </Button>

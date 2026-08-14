@@ -17,6 +17,7 @@ const NAV_ITEMS: NavItemDef[] = [
     icon: 'bi-journal-text',
     subItems: [
       { path: '/learn', label: '전체 보기' },
+      { path: '/learn/concepts', label: '개념정리' },
       { path: '/learn/beginner', label: '초급' },
       { path: '/learn/intermediate', label: '중급' },
       { path: '/learn/advanced', label: '고급' },

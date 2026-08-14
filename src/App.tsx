@@ -6,6 +6,8 @@ import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
 import DashboardPage from './pages/DashboardPage'
 import LearnPage from './pages/LearnPage'
+import LearnConceptsPage from './pages/LearnConceptsPage'
+import LearnConceptDetailPage from './pages/LearnConceptDetailPage'
 import OnboardingInvestmentProfilePage from './pages/OnboardingInvestmentProfilePage'
 import LearnAiHistoryPage from './pages/LearnAiHistoryPage'
 import LearnLevelPage from './pages/LearnLevelPage'
@@ -50,6 +52,8 @@ export default function App() {
           <Route path="/community/write" element={<CommunityPostWritePage />} />
           <Route path="/community/:postId/edit" element={<CommunityPostWritePage />} />
           <Route path="/learn" element={<LearnPage />} />
+          <Route path="/learn/concepts" element={<LearnConceptsPage />} />
+          <Route path="/learn/concepts/:slug" element={<LearnConceptDetailPage />} />
           <Route path="/learn/ai-history" element={<LearnAiHistoryPage />} />
           <Route path="/learn/bookmarks" element={<BookmarkListPage />} />
           <Route path="/learn/quiz/:topicId/:questionId" element={<QuizPage />} />

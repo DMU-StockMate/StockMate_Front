@@ -130,6 +130,63 @@ export const api_get_wrong_note = (questionId: number) =>
 export const api_delete_wrong_note = (questionId: number) =>
   api.delete(`/learning/wrong-notes/${questionId}`)
 
+export interface ConceptTopic {
+  topicId: number
+  topicName: string
+}
+
+export interface ConceptInvestmentLevel {
+  investmentLevelId: number
+  levelName: string
+}
+
+export interface ConceptSummary {
+  conceptId: number
+  slug: string
+  title: string
+  summary: string | null
+  learningObjectives: string[] | null
+  estimatedMinutes: number
+  sortOrder: number
+  thumbnailUrl: string | null
+  status: string
+  topic: ConceptTopic | null
+  investmentLevel: ConceptInvestmentLevel | null
+}
+
+export interface ConceptBlock {
+  blockId: number
+  blockType: string
+  sortOrder: number
+  title: string | null
+  contentText: string | null
+  contentJson: Record<string, unknown> | null
+  styleVariant: string | null
+}
+
+export interface ConceptQuizChoice {
+  id: number
+  text: string
+}
+
+export interface ConceptQuiz {
+  questionId: number
+  questionText: string
+  choices: ConceptQuizChoice[]
+}
+
+export interface ConceptDetail extends ConceptSummary {
+  prerequisiteText: string | null
+  blocks: ConceptBlock[]
+  quiz: ConceptQuiz | null
+}
+
+export const api_get_concepts = (params?: { topicId?: number; investmentLevelId?: number }) =>
+  api.get<ConceptSummary[]>('/learning/concepts', params ? { params } : undefined)
+
+export const api_get_concept = (slug: string) =>
+  api.get<ConceptDetail>(`/learning/concepts/${slug}`)
+
 export const api_add_bookmark = (questionId: number) =>
   api.post(`/learning/bookmarks/${questionId}`)
 

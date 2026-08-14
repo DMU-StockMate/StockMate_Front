@@ -12,6 +12,7 @@ import {
   CHART_WIDTH_CONST,
   CHART_HEIGHT_CONST,
 } from '../hooks/useDashboard'
+import { useLearnPage } from '../hooks/useLearnPage'
 
 const PERIOD_TABS = ['1주', '1개월', '3개월', '1년']
 
@@ -28,6 +29,7 @@ export default function DashboardPage() {
     chartPoints, chartFill, lastChartPoint,
     format_money,
   } = useDashboard()
+  const { stats, questionCount, accuracy, streakDays, loading: learnLoading } = useLearnPage()
 
   return (
     <AppLayout hasNotification hasWishlist>
@@ -75,11 +77,13 @@ export default function DashboardPage() {
             <Pill>{user?.level ?? '초급 Lv.1'}</Pill>
             <span className="muted" style={{ fontSize: 12 }}>오늘의 학습</span>
           </div>
-          <div style={{ fontSize: 18, fontWeight: 700 }}>5문제 · 25분</div>
+          <div style={{ fontSize: 18, fontWeight: 700 }}>
+            {learnLoading ? '불러오는 중' : `${stats?.correct ?? 0}문제 정답 · 정답률 ${accuracy}%`}
+          </div>
           <div className="muted" style={{ marginTop: 4 }}>정답 시 자금 +500원/문제</div>
-          <Progress value={40} style={{ marginTop: 16 }} />
+          <Progress value={stats?.total ?? 0} max={Math.max(questionCount, 1)} style={{ marginTop: 16 }} />
           <div className="row" style={{ marginTop: 10 }}>
-            <span className="muted" style={{ fontSize: 12 }}>2 / 5 완료</span>
+            <span className="muted" style={{ fontSize: 12 }}>{stats?.total ?? 0} / {questionCount} 완료</span>
             <Button size="sm">
               <i className="bi bi-play-fill" />
               학습 시작
@@ -90,16 +94,18 @@ export default function DashboardPage() {
         <Card>
           <div className="row" style={{ marginBottom: 12 }}>
             <Pill variant="accent">이번 주 미션</Pill>
-            <span className="muted" style={{ fontSize: 12 }}>4 / 7</span>
+            <span className="muted" style={{ fontSize: 12 }}>{Math.min(streakDays, 7)} / 7</span>
           </div>
           <div style={{ fontSize: 18, fontWeight: 700 }}>7일 연속 학습</div>
           <div className="muted" style={{ marginTop: 4 }}>달성 시 +5,000원 보너스</div>
           <div className="mission-gauge" style={{ marginTop: 18 }}>
-            {[true, true, true, true, false, false, false].map((fill, i) => (
+            {Array.from({ length: 7 }, (_, i) => i < streakDays).map((fill, i) => (
               <span key={i} className={fill ? 'fill' : ''} />
             ))}
           </div>
-          <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>다음 보상: +2,000원 (5일차)</div>
+          <div className="muted" style={{ marginTop: 10, fontSize: 12 }}>
+            {streakDays > 0 ? `${streakDays}일 연속 학습 중` : '오늘 학습을 시작해보세요'}
+          </div>
         </Card>
       </div>
 

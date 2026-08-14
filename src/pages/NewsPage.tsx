@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import AppLayout from '../components/layout/AppLayout'
 import Card from '../components/common/Card'
 import Button from '../components/common/Button'
@@ -23,7 +23,7 @@ export default function NewsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  useEffect(() => {
+  const loadNews = useCallback(() => {
     setLoading(true)
     setError('')
     api_get_news_summaries({ keyword, limit: 12 })
@@ -31,6 +31,12 @@ export default function NewsPage() {
       .catch(() => setError('뉴스를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.'))
       .finally(() => setLoading(false))
   }, [keyword])
+
+  useEffect(() => {
+    loadNews()
+    const timer = window.setInterval(loadNews, 5 * 60 * 1000)
+    return () => window.clearInterval(timer)
+  }, [loadNews])
 
   const submit = () => {
     const next = input.trim()
