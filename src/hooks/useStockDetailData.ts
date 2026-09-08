@@ -10,8 +10,10 @@ import {
   api_get_stock_chart_weekly,
   api_get_stock_chart_monthly,
   api_get_stock_investor_trend,
+  api_get_stock_revenue_composition,
   api_subscribe_stock_realtime,
   type InvestorTrendDay,
+  type RevenueCompositionItem,
   type StockDetail,
   type StockInvestmentIndicators,
   type StockSummary,
@@ -239,6 +241,9 @@ export function useStockDetailData(ticker?: string) {
   const [disclosures, setDisclosures] = useState<DartDisclosure[]>([])
   const [investorTrend, setInvestorTrend] = useState<InvestorTrendDay[]>([])
   const [investorTrendLoading, setInvestorTrendLoading] = useState(false)
+  const [revenueComposition, setRevenueComposition] = useState<RevenueCompositionItem[]>([])
+  const [revenueCompositionPeriod, setRevenueCompositionPeriod] = useState<string | null>(null)
+  const [revenueCompositionLoading, setRevenueCompositionLoading] = useState(false)
   const [period, setPeriod] = useState<StockChartPeriod>('daily')
   const [loading, setLoading] = useState(true)
   const [chartLoading, setChartLoading] = useState(false)
@@ -357,6 +362,32 @@ export function useStockDetailData(ticker?: string) {
     }
   }, [activeTicker])
 
+  useEffect(() => {
+    if (!activeTicker) return
+    let cancelled = false
+    setRevenueCompositionLoading(true)
+
+    api_get_stock_revenue_composition(activeTicker)
+      .then(({ data }) => {
+        if (cancelled) return
+        setRevenueComposition(data.items ?? [])
+        setRevenueCompositionPeriod(data.period ?? null)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setRevenueComposition([])
+          setRevenueCompositionPeriod(null)
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setRevenueCompositionLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [activeTicker])
+
   const loadTradingSnapshot = useCallback(() => {
     Promise.allSettled([
       api_get_trading_account(),
@@ -440,6 +471,9 @@ export function useStockDetailData(ticker?: string) {
     modal,
     period,
     qty,
+    revenueComposition,
+    revenueCompositionLoading,
+    revenueCompositionPeriod,
     setModal,
     setPeriod,
     setQty,

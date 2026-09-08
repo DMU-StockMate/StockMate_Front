@@ -8,6 +8,7 @@ import { useStockDetailData, type StockChartPeriod } from '../hooks/useStockDeta
 import { useWatchlist } from '../hooks/useWatchlist'
 import PriceChart from '../components/stock/PriceChart'
 import InvestorTrendCard from '../components/stock/InvestorTrendCard'
+import RevenueCompositionCard from '../components/stock/RevenueCompositionCard'
 import RangeBar from '../components/stock/RangeBar'
 import { to_num, fmt_price, fmt_rate, fmt_val, fmt_indicator, fmt_market_cap, price_of } from '../utils/format'
 
@@ -99,6 +100,9 @@ export default function StockDetailPage() {
     investorTrendLoading,
     loading,
     modal,
+    revenueComposition,
+    revenueCompositionLoading,
+    revenueCompositionPeriod,
     period,
     qty,
     setModal,
@@ -438,6 +442,15 @@ export default function StockDetailPage() {
               )}
             </Card>
           </div>
+
+          <Card style={{ marginBottom: 20 }}>
+            <div className="section-title" style={{ marginBottom: 16 }}>매출구성</div>
+            <RevenueCompositionCard
+              items={revenueComposition}
+              period={revenueCompositionPeriod}
+              loading={revenueCompositionLoading}
+            />
+          </Card>
 
           {financials && Object.keys(financials).length > 0 && (
             <Card style={{ marginBottom: 20 }}>

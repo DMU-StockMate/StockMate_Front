@@ -207,6 +207,20 @@ export const api_get_stock_indicators = (ticker: string) =>
 export const api_get_stock_investor_trend = (ticker: string) =>
   api.get<InvestorTrendResponse>(`/stocks/${ticker}/investor-trend`)
 
+export interface RevenueCompositionItem {
+  name: string
+  ratio: number
+}
+
+export interface RevenueCompositionResponse {
+  ticker: string
+  period: string | null
+  items: RevenueCompositionItem[]
+}
+
+export const api_get_stock_revenue_composition = (ticker: string) =>
+  api.get<RevenueCompositionResponse>(`/stocks/${ticker}/revenue-composition`)
+
 export const api_get_stock_dividends = (ticker: string) =>
   api.get(`/stocks/${ticker}/dividends`)
 

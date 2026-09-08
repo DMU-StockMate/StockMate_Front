@@ -30,13 +30,13 @@ export const fmt_market_cap = (v: unknown): string => {
   return n > 0 ? `${Math.round(n / 100000000).toLocaleString()}억` : '-'
 }
 
-export const price_of = (row: Record<string, unknown>, keys: string[]): number => {
+export const price_of = (row: object, keys: string[]): number => {
   for (const key of keys) {
-    const value = to_num(row[key])
+    const value = to_num(Reflect.get(row, key))
     if (value > 0) return value
   }
   return 0
 }
 
-export const date_of = (row: Record<string, unknown>): string =>
-  String(row.tradeDate ?? row.date ?? row.baseDate ?? '')
+export const date_of = (row: object): string =>
+  String(Reflect.get(row, 'tradeDate') ?? Reflect.get(row, 'date') ?? Reflect.get(row, 'baseDate') ?? '')

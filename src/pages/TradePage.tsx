@@ -12,7 +12,7 @@ export default function TradePage() {
   const {
     modal, setModal, qty, setQty,
     riseStocks, volumeStocks, loading,
-    summary, assetLoading, trades,
+    summary, assetLoading,
     unitPrice, virtualCash, totalPrice, remaining,
     todayTradeCount, profitText,
     handle_open_modal, handle_close_modal,

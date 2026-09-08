@@ -12,7 +12,6 @@ interface TopbarProps {
 
 export default function Topbar({
   placeholder = '종목, 커뮤니티, 학습 검색',
-  hasWishlist = false,
 }: TopbarProps) {
   const { isLoggedIn, user } = useAuth()
   const {

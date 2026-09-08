@@ -12,7 +12,6 @@ import {
   get_attempt_reward,
   get_bookmark_question_id,
   get_bookmark_question_text,
-  get_bookmark_topic_slug,
 } from '../hooks/useLearnPage'
 import { INVESTMENT_LEVEL_ID_MAP } from '../hooks/useLearnTopic'
 
@@ -198,7 +197,6 @@ export default function LearnPage() {
         {!loading && bookmarks.slice(0, 4).map((bookmark) => {
           const questionId = get_bookmark_question_id(bookmark)
           const text = get_bookmark_question_text(bookmark)
-          const topicSlug = get_bookmark_topic_slug(bookmark)
           return (
             <div
               key={questionId}

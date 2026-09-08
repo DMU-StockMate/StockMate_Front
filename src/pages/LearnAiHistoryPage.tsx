@@ -12,7 +12,7 @@ import {
 
 export default function LearnAiHistoryPage() {
   const navigate = useNavigate()
-  const { sessions, activeSessionId, setActiveSessionId, activeSession, loading, error } = useLearnAiHistory()
+  const { sessions, setActiveSessionId, activeSession, loading, error } = useLearnAiHistory()
 
   return (
     <AppLayout topbarPlaceholder="학습 AI 질문 기록 검색">
