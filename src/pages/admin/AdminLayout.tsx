@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { path: '/admin/dashboard', icon: 'bi-grid', label: '대시보드' },
   { path: '/admin/users', icon: 'bi-people', label: '회원 관리' },
   { path: '/admin/stocks', icon: 'bi-bar-chart', label: '종목 관리' },
+  { path: '/admin/questions', icon: 'bi-question-circle', label: '문제 관리' },
 ]
 
 export default function AdminLayout({ children, title }: AdminLayoutProps) {

@@ -5,14 +5,12 @@ import Topbar from './Topbar'
 interface AppLayoutProps {
   children: ReactNode
   topbarPlaceholder?: string
-  hasNotification?: boolean
   hasWishlist?: boolean
 }
 
 export default function AppLayout({
   children,
   topbarPlaceholder,
-  hasNotification,
   hasWishlist,
 }: AppLayoutProps) {
   return (
@@ -21,7 +19,6 @@ export default function AppLayout({
       <div className="main-area">
         <Topbar
           placeholder={topbarPlaceholder}
-          hasNotification={hasNotification}
           hasWishlist={hasWishlist}
         />
         <main className="content-area">

@@ -9,13 +9,15 @@ import {
   api_get_stock_chart_daily,
   api_get_stock_chart_weekly,
   api_get_stock_chart_monthly,
+  api_get_stock_investor_trend,
   api_subscribe_stock_realtime,
+  type InvestorTrendDay,
   type StockDetail,
   type StockInvestmentIndicators,
   type StockSummary,
   type StockPriceDaily,
 } from '../api/stocks'
-import { api_sync_dart_indicators } from '../api/dart'
+import { api_sync_dart_indicators, api_get_stock_disclosures, api_get_stock_financial_summary, type DartDisclosure } from '../api/dart'
 import {
   api_buy_stock,
   api_get_holdings,
@@ -183,6 +185,7 @@ const get_yesterday_date = () => {
 const merge_realtime_price_into_chart = (
   rows: StockPriceDaily[],
   realtimePayload: Record<string, unknown>,
+  period: StockChartPeriod,
 ) => {
   const currentPrice = get_number(realtimePayload, ['currentPrice', 'price', 'closePrice', 'close'])
   if (currentPrice <= 0 || rows.length === 0) return rows
@@ -190,12 +193,16 @@ const merge_realtime_price_into_chart = (
   const nextRows = [...rows]
   const lastIndex = nextRows.length - 1
   const last = as_object(nextRows[lastIndex])
-  const openPrice = get_number(last, ['openPrice', 'open']) || currentPrice
-  const highPrice = Math.max(get_number(last, ['highPrice', 'high']) || currentPrice, currentPrice)
-  const lowPrice = Math.min(get_number(last, ['lowPrice', 'low']) || currentPrice, currentPrice)
+  // 일봉은 endDate가 어제로 고정돼 있어 마지막 행이 '어제(마감된)' 캔들이다.
+  // 오늘 날짜가 아니면 덮어쓰지 않고 오늘 캔들을 새로 추가한다.
+  const isTodayRow = period !== 'daily' || date_of(nextRows[lastIndex]) === format_local_date(new Date())
+  const openPrice = isTodayRow ? get_number(last, ['openPrice', 'open']) || currentPrice : currentPrice
+  const highPrice = Math.max(isTodayRow ? get_number(last, ['highPrice', 'high']) || currentPrice : currentPrice, currentPrice)
+  const lowPrice = isTodayRow ? Math.min(get_number(last, ['lowPrice', 'low']) || currentPrice, currentPrice) : currentPrice
 
-  nextRows[lastIndex] = {
-    ...(nextRows[lastIndex] as unknown as Record<string, unknown>),
+  const mergedRow = {
+    ...(isTodayRow ? (nextRows[lastIndex] as unknown as Record<string, unknown>) : {}),
+    tradeDate: isTodayRow ? last.tradeDate : format_local_date(new Date()),
     openPrice,
     highPrice,
     lowPrice,
@@ -203,6 +210,12 @@ const merge_realtime_price_into_chart = (
     close: currentPrice,
     currentPrice,
   } as unknown as StockPriceDaily
+
+  if (isTodayRow) {
+    nextRows[lastIndex] = mergedRow
+  } else {
+    nextRows.push(mergedRow)
+  }
 
   return nextRows
 }
@@ -219,10 +232,13 @@ export function useStockDetailData(ticker?: string) {
   const [stock, setStock] = useState<StockDetail | null>(null)
   const [summary, setSummary] = useState<StockSummary | null>(null)
   const [chartData, setChartData] = useState<StockPriceDaily[]>([])
-  const [financials] = useState<Record<string, unknown> | null>(null)
+  const [financials, setFinancials] = useState<Record<string, unknown> | null>(null)
   const [indicators, setIndicators] = useState<StockInvestmentIndicators | null>(null)
   const [indicatorSyncing, setIndicatorSyncing] = useState(false)
   const [dividends] = useState<Record<string, unknown>[]>([])
+  const [disclosures, setDisclosures] = useState<DartDisclosure[]>([])
+  const [investorTrend, setInvestorTrend] = useState<InvestorTrendDay[]>([])
+  const [investorTrendLoading, setInvestorTrendLoading] = useState(false)
   const [period, setPeriod] = useState<StockChartPeriod>('daily')
   const [loading, setLoading] = useState(true)
   const [chartLoading, setChartLoading] = useState(false)
@@ -240,18 +256,24 @@ export function useStockDetailData(ticker?: string) {
     setStock(null)
     setSummary(null)
     setIndicators(null)
+    setFinancials(null)
+    setDisclosures([])
 
     resolve_stock(ticker)
       .then(async ({ requestedTicker, stock }) => {
-        const [summaryRes, priceRes, indicatorsRes] = await Promise.all([
+        const [summaryRes, priceRes, indicatorsRes, financialsRes, disclosuresRes] = await Promise.all([
           api_get_stock_summary(requestedTicker).catch(() => ({ data: null })),
           api_get_stock_latest_price(requestedTicker).catch(() => ({ data: null })),
           api_get_stock_indicators(requestedTicker).catch(() => ({ data: null })),
+          api_get_stock_financial_summary(requestedTicker).catch(() => ({ data: null })),
+          api_get_stock_disclosures(requestedTicker).catch(() => ({ data: [] })),
         ])
         if (cancelled) return
         setActiveTicker(requestedTicker)
         setStock(stock)
         setSummary(normalize_summary(summaryRes.data, priceRes.data))
+        setFinancials(financialsRes.data as Record<string, unknown> | null)
+        setDisclosures(disclosuresRes.data ?? [])
 
         const freshIndicators = indicatorsRes.data as StockInvestmentIndicators | null
         setIndicators(freshIndicators)
@@ -297,7 +319,7 @@ export function useStockDetailData(ticker?: string) {
           ticker: activeTicker,
         }) as StockSummary)
         setChartData((prev) =>
-          merge_realtime_price_into_chart(prev, realtimePayload),
+          merge_realtime_price_into_chart(prev, realtimePayload, period),
         )
       } catch {
         // 실시간 가격이 아직 캐시에 없으면 기존 상세 정보를 유지합니다.
@@ -311,6 +333,27 @@ export function useStockDetailData(ticker?: string) {
 
     return () => {
       window.clearInterval(timer)
+    }
+  }, [activeTicker, period])
+
+  useEffect(() => {
+    if (!activeTicker) return
+    let cancelled = false
+    setInvestorTrendLoading(true)
+
+    api_get_stock_investor_trend(activeTicker)
+      .then(({ data }) => {
+        if (!cancelled) setInvestorTrend(data.days ?? [])
+      })
+      .catch(() => {
+        if (!cancelled) setInvestorTrend([])
+      })
+      .finally(() => {
+        if (!cancelled) setInvestorTrendLoading(false)
+      })
+
+    return () => {
+      cancelled = true
     }
   }, [activeTicker])
 
@@ -385,11 +428,14 @@ export function useStockDetailData(ticker?: string) {
     activeTicker,
     chartData,
     chartLoading,
+    disclosures,
     dividends,
     financials,
     holdings,
     indicators,
     indicatorSyncing,
+    investorTrend,
+    investorTrendLoading,
     loading,
     modal,
     period,

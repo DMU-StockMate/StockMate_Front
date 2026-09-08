@@ -50,6 +50,42 @@ export interface AdminStock {
   isActive: boolean
 }
 
+export type AdminQuestionReviewStatus = 'PENDING' | 'ACTIVE' | 'INACTIVE' | 'REJECTED' | 'REVIEW_REQUIRED'
+
+export interface AdminQuestionCandidate {
+  questionId: number
+  questionText: string
+  category: { categoryId: number; categoryName: string } | null
+  detail: { detailId: number; detailName: string } | null
+  sourceType: string
+  quizPoolType: string
+  visibility: string
+  source: string
+  reviewStatus: AdminQuestionReviewStatus
+  aiQualityScore: number | null
+  finalQualityScore: number | null
+  similarityScore: number | null
+  similarQuestionId: number | null
+  reason: string
+  warning?: string | null
+}
+
+export interface AdminQuestionCandidatesResponse {
+  items: AdminQuestionCandidate[]
+  meta: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
+}
+
+export interface AdminQuestionQualitySummary {
+  totalQuestions: number
+  targetActiveCount: number
+  reviewStatusCounts: Record<AdminQuestionReviewStatus, number>
+}
+
 // Admin Users
 export const api_admin_get_users = () =>
   adminApi.get<AdminUser[]>('/admin/users')
@@ -72,6 +108,23 @@ export const api_admin_update_stock_status = (ticker: string, status: 'ACTIVE' |
 
 export const api_admin_delete_stock = (ticker: string) =>
   adminApi.delete(`/admin/stocks/${ticker}`)
+
+// Admin Learning
+export const api_admin_get_question_quality_summary = () =>
+  adminApi.get<AdminQuestionQualitySummary>('/admin/learning/questions/quality-summary')
+
+export const api_admin_get_question_candidates = (params?: {
+  reviewStatus?: AdminQuestionReviewStatus
+  page?: number
+  limit?: number
+}) =>
+  adminApi.get<AdminQuestionCandidatesResponse>('/admin/learning/questions/quality-candidates', { params })
+
+export const api_admin_update_question_review_status = (questionId: number, reviewStatus: AdminQuestionReviewStatus) =>
+  adminApi.patch<AdminQuestionCandidate>(`/admin/learning/questions/${questionId}/review-status`, { reviewStatus })
+
+export const api_admin_recalculate_question_quality = (questionId: number) =>
+  adminApi.patch<AdminQuestionCandidate>(`/admin/learning/questions/${questionId}/recalculate-quality`)
 
 // Admin KRX Sync
 export const api_admin_sync_stocks = (date?: string) =>

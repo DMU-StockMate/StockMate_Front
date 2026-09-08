@@ -398,6 +398,41 @@ h1, h2, h3, h4, h5, h6 {
   border: 2px solid #fff;
 }
 
+.notification-anchor {
+  position: relative;
+}
+
+.notification-dropdown {
+  right: 0;
+  left: auto;
+  width: 340px;
+}
+
+.notification-dropdown-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 10px 8px;
+}
+
+.notification-mark-all {
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.notification-unread-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
 .top-profile {
   display: flex;
   align-items: center;

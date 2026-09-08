@@ -130,7 +130,6 @@ export function useSignupForm() {
         nickname: form.nickname,
         name: form.name,
         phone: form.phone,
-        role: 'USER',
       })
       navigate('/login')
     } catch (err: any) {

@@ -32,6 +32,7 @@ const format_axis_price = (value: number) =>
 export default function PriceChart({ data }: PriceChartProps) {
   const [zoom, setZoom] = useState(8)
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
+  const [scrollLeft, setScrollLeft] = useState(0)
   const scrollRef = useRef<HTMLDivElement | null>(null)
 
   const candles = data
@@ -48,11 +49,6 @@ export default function PriceChart({ data }: PriceChartProps) {
     })
     .filter((d) => d.open > 0 && d.high > 0 && d.low > 0 && d.close > 0)
 
-  const lows = candles.map((d) => d.low)
-  const highs = candles.map((d) => d.high)
-  const minY = candles.length > 0 ? Math.min(...lows) : 0
-  const maxY = candles.length > 0 ? Math.max(...highs) : 1
-  const range = maxY - minY || 1
   const volumeTop = PAD.top + PRICE_H + 18
   const volumeH = H - volumeTop - PAD.bottom
   const n = candles.length
@@ -61,6 +57,22 @@ export default function PriceChart({ data }: PriceChartProps) {
   const W = PAD.left + cW + PAD.right
   const candleW = Math.max(4, Math.min(16, slot * 0.58))
   const maxVolume = Math.max(...candles.map((d) => d.volume), 1)
+
+  // Y축은 스크롤/줌으로 실제 보이는 구간의 캔들만 기준으로 잡는다.
+  // 전체 데이터 기준으로 잡으면 과거 고점/저점 때문에 최근 구간이 눌려 보인다.
+  const viewportWidth = scrollRef.current?.clientWidth ?? cW
+  const startIdx = Math.max(0, Math.floor((scrollLeft - PAD.left) / slot))
+  const endIdx = Math.min(n - 1, Math.ceil((scrollLeft + viewportWidth - PAD.left) / slot))
+  const visibleCandles = n > 0 ? candles.slice(startIdx, endIdx + 1) : []
+  const boundCandles = visibleCandles.length > 0 ? visibleCandles : candles
+  const lows = boundCandles.map((d) => d.low)
+  const highs = boundCandles.map((d) => d.high)
+  const rawMinY = boundCandles.length > 0 ? Math.min(...lows) : 0
+  const rawMaxY = boundCandles.length > 0 ? Math.max(...highs) : 1
+  const yPadding = (rawMaxY - rawMinY) * 0.08 || rawMaxY * 0.02 || 1
+  const minY = Math.max(0, rawMinY - yPadding)
+  const maxY = rawMaxY + yPadding
+  const range = maxY - minY || 1
 
   const px = (i: number) => PAD.left + slot * i + slot / 2
   const py = (price: number) => PAD.top + ((maxY - price) / range) * PRICE_H
@@ -109,7 +121,12 @@ export default function PriceChart({ data }: PriceChartProps) {
     const el = scrollRef.current
     if (!el) return
     el.scrollLeft = el.scrollWidth
+    setScrollLeft(el.scrollLeft)
   }, [data, zoom])
+
+  const handle_scroll = (event: React.UIEvent<HTMLDivElement>) => {
+    setScrollLeft(event.currentTarget.scrollLeft)
+  }
 
   const handle_wheel = (event: React.WheelEvent<HTMLDivElement>) => {
     event.preventDefault()
@@ -163,6 +180,7 @@ export default function PriceChart({ data }: PriceChartProps) {
       <div
         ref={scrollRef}
         onWheel={handle_wheel}
+        onScroll={handle_scroll}
         style={{ overflowX: 'auto', overflowY: 'hidden', paddingBottom: 4, overscrollBehavior: 'contain' }}
       >
         <svg

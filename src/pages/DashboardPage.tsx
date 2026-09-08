@@ -32,7 +32,7 @@ export default function DashboardPage() {
   const { stats, questionCount, accuracy, streakDays, loading: learnLoading } = useLearnPage()
 
   return (
-    <AppLayout hasNotification hasWishlist>
+    <AppLayout hasWishlist>
       <div className="page-title">
         <div>
           <div className="display">안녕하세요, {user?.name ?? '사용자'}님</div>

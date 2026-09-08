@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import AppLayout from '../components/layout/AppLayout'
 import Card from '../components/common/Card'
@@ -6,9 +7,20 @@ import type { StockDetail, StockSummary } from '../api/stocks'
 import { useStockDetailData, type StockChartPeriod } from '../hooks/useStockDetailData'
 import { useWatchlist } from '../hooks/useWatchlist'
 import PriceChart from '../components/stock/PriceChart'
+import InvestorTrendCard from '../components/stock/InvestorTrendCard'
+import RangeBar from '../components/stock/RangeBar'
 import { to_num, fmt_price, fmt_rate, fmt_val, fmt_indicator, fmt_market_cap, price_of } from '../utils/format'
 
 const PERIOD_LABELS: Record<StockChartPeriod, string> = { daily: '일봉', weekly: '주봉', monthly: '월봉' }
+
+type DetailTab = 'chart' | 'info' | 'news' | 'community'
+
+const TABS: { key: DetailTab; label: string }[] = [
+  { key: 'chart', label: '차트' },
+  { key: 'info', label: '종목정보' },
+  { key: 'news', label: '뉴스·공시' },
+  { key: 'community', label: '커뮤니티' },
+]
 
 const as_object = (value: unknown): Record<string, unknown> =>
   value != null && typeof value === 'object' ? value as Record<string, unknown> : {}
@@ -72,15 +84,19 @@ const get_price_summary = (summary: StockSummary | null, stock: StockDetail | nu
 export default function StockDetailPage() {
   const { ticker } = useParams<{ ticker: string }>()
   const navigate = useNavigate()
+  const [activeTab, setActiveTab] = useState<DetailTab>('chart')
   const {
     account,
     chartData,
     chartLoading,
+    disclosures,
     dividends,
     financials,
     holdings,
     indicators,
     indicatorSyncing,
+    investorTrend,
+    investorTrendLoading,
     loading,
     modal,
     period,
@@ -133,6 +149,16 @@ export default function StockDetailPage() {
     (modal.mode === 'buy'
       ? virtualCash >= totalOrderPrice
       : (currentHolding?.quantity ?? 0) >= qty)
+  const latestCandle = chartData[chartData.length - 1] as unknown as Record<string, unknown> | undefined
+  const todayLow = latestCandle ? price_of(latestCandle, ['lowPrice', 'low']) : 0
+  const todayHigh = latestCandle ? price_of(latestCandle, ['highPrice', 'high']) : 0
+  const yearCandles = period === 'daily' ? chartData.slice(-252) : []
+  const yearLows = yearCandles.map((row) => price_of(row as unknown as Record<string, unknown>, ['lowPrice', 'low'])).filter((v) => v > 0)
+  const yearHighs = yearCandles.map((row) => price_of(row as unknown as Record<string, unknown>, ['highPrice', 'high'])).filter((v) => v > 0)
+  const yearLow = yearLows.length > 0 ? Math.min(...yearLows) : 0
+  const yearHigh = yearHighs.length > 0 ? Math.max(...yearHighs) : 0
+  const latestInvestorDay = investorTrend[investorTrend.length - 1]
+
   const indicatorValues = indicators?.indicators
   const hasFinancialIndicators = Boolean(
     indicators?.dataAvailability?.financialIndicators ||
@@ -253,135 +279,244 @@ export default function StockDetailPage() {
             </div>
           </div>
         </div>
-      </Card>
 
-      {/* ── 차트 카드 ── */}
-      <Card style={{ marginBottom: 20 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <div className="section-title" style={{ marginBottom: 0 }}>주가 차트</div>
-          <div style={{ display: 'flex', gap: 4 }}>
-            {(['daily', 'weekly', 'monthly'] as StockChartPeriod[]).map((p) => (
-              <button
-                key={p}
-                onClick={() => setPeriod(p)}
-                style={{
-                  height: 32, padding: '0 14px', borderRadius: 8, fontSize: 13, fontWeight: 600,
-                  border: '1px solid var(--border)', cursor: 'pointer',
-                  background: period === p ? 'var(--primary)' : '#fff',
-                  color: period === p ? '#fff' : 'var(--t2)',
-                  transition: 'all 0.15s',
-                }}
-              >
-                {PERIOD_LABELS[p]}
-              </button>
-            ))}
-          </div>
-        </div>
-        {chartLoading ? (
-          <div style={{ height: 260, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--t2)', fontSize: 13 }}>
-            차트를 불러오는 중...
-          </div>
-        ) : (
-          <PriceChart data={chartData} />
-        )}
         {chartData.length > 0 && (
-          <div style={{ display: 'flex', gap: 20, marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)', flexWrap: 'wrap' }}>
-            {[
-              { label: '시가', value: fmt_price(price_of(chartData[chartData.length - 1], ['openPrice', 'open'])) },
-              { label: '고가', value: fmt_price(price_of(chartData[chartData.length - 1], ['highPrice', 'high'])) },
-              { label: '저가', value: fmt_price(price_of(chartData[chartData.length - 1], ['lowPrice', 'low'])) },
-              { label: '종가', value: fmt_price(price_of(chartData[chartData.length - 1], ['closePrice', 'close'])) },
-              { label: '거래량', value: fmt_val((chartData[chartData.length - 1] as unknown as Record<string, unknown>).volume, '주') },
-            ].map(({ label, value }) => (
-              <div key={label}>
-                <div className="label" style={{ marginBottom: 2 }}>{label}</div>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>{value}</div>
-              </div>
-            ))}
-          </div>
-        )}
-      </Card>
-
-      {/* ── 시장 요약 + 투자 지표 ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
-        <Card>
-          <div className="section-title" style={{ marginBottom: 16 }}>시장 요약</div>
-          {summary || currentPrice > 0 || marketSummary.volume > 0 || marketSummary.marketCap > 0 ? (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              {[
-                { label: '현재가', value: fmt_price(currentPrice) },
-                { label: '등락률', value: fmt_rate(changeRate) },
-                { label: '거래량', value: marketSummary.volume ? fmt_val(marketSummary.volume, '주') : '-' },
-                { label: '시가총액', value: fmt_market_cap(marketSummary.marketCap) },
-              ].map(({ label, value }) => (
-                <div key={label} className="metric">
-                  <div className="lbl">{label}</div>
-                  <div className="val" style={{ fontSize: 15 }}>{value}</div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="muted" style={{ textAlign: 'center', padding: '24px 0', fontSize: 13 }}>시장 데이터가 없습니다</div>
-          )}
-        </Card>
-
-        <Card>
-          <div className="section-title" style={{ marginBottom: 16 }}>투자 지표</div>
-          {indicatorSyncing ? (
-            <div className="muted" style={{ textAlign: 'center', padding: '24px 0', fontSize: 13 }}>
-              DART에서 재무 지표를 불러오는 중...
-            </div>
-          ) : hasIndicators ? (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              {[
-                { label: 'PER', value: fmt_indicator(indicatorValues?.per, '배') },
-                { label: 'PBR', value: fmt_indicator(indicatorValues?.pbr, '배') },
-                { label: 'ROE', value: fmt_indicator(indicatorValues?.roe, '%') },
-                { label: 'EPS', value: fmt_indicator(indicatorValues?.eps, '원') },
-                { label: 'BPS', value: fmt_indicator(indicatorValues?.bps, '원') },
-                { label: '배당수익률', value: fmt_indicator(indicatorValues?.dividendYield, '%') },
-                { label: '시가총액', value: fmt_market_cap(indicators?.marketCap ?? indicators?.estimatedMarketCap) },
-                { label: '상장주식수', value: fmt_val(indicators?.totalShares, '주') },
-              ].map(({ label, value }) => (
-                <div key={label} className="metric">
-                  <div className="lbl">{label}</div>
-                  <div className="val" style={{ fontSize: 15 }}>{value}</div>
-                </div>
-              ))}
-              {(indicators?.indicatorTradeDate || indicators?.tradeDate) && (
-                <div className="muted" style={{ gridColumn: '1 / -1', fontSize: 12, paddingTop: 4 }}>
-                  기준일 {indicators.indicatorTradeDate ?? indicators.tradeDate}
-                  {indicators.indicatorSource === 'DART' && ' · DART 재무제표 기반 계산'}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="muted" style={{ textAlign: 'center', padding: '24px 0', fontSize: 13 }}>지표 데이터가 없습니다</div>
-          )}
-        </Card>
-      </div>
-
-      {/* ── 재무 정보 ── */}
-      {financials && Object.keys(financials).length > 0 && (
-        <Card style={{ marginBottom: 20 }}>
-          <div className="section-title" style={{ marginBottom: 16 }}>재무 정보</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 10 }}>
-            {Object.entries(financials)
-              .filter(([, v]) => v !== null && v !== undefined && v !== '')
-              .map(([key, value]) => (
-                <div key={key} className="metric">
-                  <div className="lbl">{key}</div>
-                  <div className="val" style={{ fontSize: 14 }}>
-                    {typeof value === 'number' ? value.toLocaleString() : String(value)}
+          <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', marginTop: 18, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+            <RangeBar label="1일 범위" low={todayLow} high={todayHigh} current={currentPrice} />
+            {period === 'daily' && <RangeBar label="52주 범위" low={yearLow} high={yearHigh} current={currentPrice} />}
+            {latestInvestorDay && (
+              <>
+                <div>
+                  <div className="muted" style={{ fontSize: 12, marginBottom: 2 }}>외국인 순매수</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: latestInvestorDay.foreignNet >= 0 ? 'var(--up)' : 'var(--down)' }}>
+                    {latestInvestorDay.foreignNet >= 0 ? '+' : ''}{Math.round(latestInvestorDay.foreignNet / 100000000).toLocaleString()}억
                   </div>
                 </div>
-              ))}
+                <div>
+                  <div className="muted" style={{ fontSize: 12, marginBottom: 2 }}>기관 순매수</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: latestInvestorDay.institutionNet >= 0 ? 'var(--up)' : 'var(--down)' }}>
+                    {latestInvestorDay.institutionNet >= 0 ? '+' : ''}{Math.round(latestInvestorDay.institutionNet / 100000000).toLocaleString()}억
+                  </div>
+                </div>
+              </>
+            )}
           </div>
+        )}
+      </Card>
+
+      {/* ── 탭 ── */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid var(--border)' }}>
+        {TABS.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            style={{
+              padding: '10px 18px', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+              background: 'none', border: 'none', borderBottom: `2px solid ${activeTab === tab.key ? 'var(--primary)' : 'transparent'}`,
+              color: activeTab === tab.key ? 'var(--primary)' : 'var(--t3)',
+              marginBottom: -1, transition: 'color 0.15s, border-color 0.15s',
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── 차트 + 투자자 동향 ── */}
+      {activeTab === 'chart' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 20, marginBottom: 20, alignItems: 'start' }}>
+          <Card style={{ minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <div className="section-title" style={{ marginBottom: 0 }}>주가 차트</div>
+              <div style={{ display: 'flex', gap: 4 }}>
+                {(['daily', 'weekly', 'monthly'] as StockChartPeriod[]).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setPeriod(p)}
+                    style={{
+                      height: 32, padding: '0 14px', borderRadius: 8, fontSize: 13, fontWeight: 600,
+                      border: '1px solid var(--border)', cursor: 'pointer',
+                      background: period === p ? 'var(--primary)' : '#fff',
+                      color: period === p ? '#fff' : 'var(--t2)',
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    {PERIOD_LABELS[p]}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {chartLoading ? (
+              <div style={{ height: 260, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--t2)', fontSize: 13 }}>
+                차트를 불러오는 중...
+              </div>
+            ) : (
+              <PriceChart data={chartData} />
+            )}
+            {chartData.length > 0 && (
+              <div style={{ display: 'flex', gap: 20, marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)', flexWrap: 'wrap' }}>
+                {[
+                  { label: '시가', value: fmt_price(price_of(chartData[chartData.length - 1], ['openPrice', 'open'])) },
+                  { label: '고가', value: fmt_price(price_of(chartData[chartData.length - 1], ['highPrice', 'high'])) },
+                  { label: '저가', value: fmt_price(price_of(chartData[chartData.length - 1], ['lowPrice', 'low'])) },
+                  { label: '종가', value: fmt_price(price_of(chartData[chartData.length - 1], ['closePrice', 'close'])) },
+                  { label: '거래량', value: fmt_val((chartData[chartData.length - 1] as unknown as Record<string, unknown>).volume, '주') },
+                ].map(({ label, value }) => (
+                  <div key={label}>
+                    <div className="label" style={{ marginBottom: 2 }}>{label}</div>
+                    <div style={{ fontWeight: 700, fontSize: 14 }}>{value}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
+          <Card>
+            <div className="section-title" style={{ marginBottom: 16 }}>개인·외국인·기관</div>
+            <InvestorTrendCard days={investorTrend} loading={investorTrendLoading} />
+          </Card>
+        </div>
+      )}
+
+      {/* ── 종목정보: 시장 요약 + 투자 지표 + 재무제표 ── */}
+      {activeTab === 'info' && (
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
+            <Card>
+              <div className="section-title" style={{ marginBottom: 16 }}>시장 요약</div>
+              {summary || currentPrice > 0 || marketSummary.volume > 0 || marketSummary.marketCap > 0 ? (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  {[
+                    { label: '현재가', value: fmt_price(currentPrice) },
+                    { label: '등락률', value: fmt_rate(changeRate) },
+                    { label: '거래량', value: marketSummary.volume ? fmt_val(marketSummary.volume, '주') : '-' },
+                    { label: '시가총액', value: fmt_market_cap(marketSummary.marketCap) },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="metric">
+                      <div className="lbl">{label}</div>
+                      <div className="val" style={{ fontSize: 15 }}>{value}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="muted" style={{ textAlign: 'center', padding: '24px 0', fontSize: 13 }}>시장 데이터가 없습니다</div>
+              )}
+            </Card>
+
+            <Card>
+              <div className="section-title" style={{ marginBottom: 16 }}>투자 지표</div>
+              {indicatorSyncing ? (
+                <div className="muted" style={{ textAlign: 'center', padding: '24px 0', fontSize: 13 }}>
+                  DART에서 재무 지표를 불러오는 중...
+                </div>
+              ) : hasIndicators ? (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  {[
+                    { label: 'PER', value: fmt_indicator(indicatorValues?.per, '배') },
+                    { label: 'PBR', value: fmt_indicator(indicatorValues?.pbr, '배') },
+                    { label: 'ROE', value: fmt_indicator(indicatorValues?.roe, '%') },
+                    { label: 'EPS', value: fmt_indicator(indicatorValues?.eps, '원') },
+                    { label: 'BPS', value: fmt_indicator(indicatorValues?.bps, '원') },
+                    { label: '배당수익률', value: fmt_indicator(indicatorValues?.dividendYield, '%') },
+                    { label: '시가총액', value: fmt_market_cap(indicators?.marketCap ?? indicators?.estimatedMarketCap) },
+                    { label: '상장주식수', value: fmt_val(indicators?.totalShares, '주') },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="metric">
+                      <div className="lbl">{label}</div>
+                      <div className="val" style={{ fontSize: 15 }}>{value}</div>
+                    </div>
+                  ))}
+                  {(indicators?.indicatorTradeDate || indicators?.tradeDate) && (
+                    <div className="muted" style={{ gridColumn: '1 / -1', fontSize: 12, paddingTop: 4 }}>
+                      기준일 {indicators.indicatorTradeDate ?? indicators.tradeDate}
+                      {indicators.indicatorSource === 'DART' && ' · DART 재무제표 기반 계산'}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="muted" style={{ textAlign: 'center', padding: '24px 0', fontSize: 13 }}>지표 데이터가 없습니다</div>
+              )}
+            </Card>
+          </div>
+
+          {financials && Object.keys(financials).length > 0 && (
+            <Card style={{ marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 6 }}>
+                <div className="section-title" style={{ marginBottom: 0 }}>재무제표</div>
+                {Boolean(financials.businessYear || financials.reportName) && (
+                  <span className="muted" style={{ fontSize: 12 }}>
+                    {financials.businessYear as string}년 {financials.reportName as string} 기준
+                  </span>
+                )}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10 }}>
+                {Object.entries(financials)
+                  .filter(([key, v]) => typeof v === 'number' && key !== 'businessYear')
+                  .map(([key, value]) => (
+                    <div key={key} className="metric">
+                      <div className="lbl">{key}</div>
+                      <div className="val" style={{ fontSize: 14 }}>{fmt_market_cap(value)}</div>
+                    </div>
+                  ))}
+              </div>
+            </Card>
+          )}
+        </>
+      )}
+
+      {/* ── 뉴스·공시 + 배당 ── */}
+      {activeTab === 'news' && (
+        <>
+          {disclosures.length > 0 ? (
+            <Card style={{ marginBottom: 20 }}>
+              <div className="section-title" style={{ marginBottom: 16 }}>뉴스 공시</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {disclosures.map((item) => (
+                  <a
+                    key={item.rceptNo}
+                    href={item.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+                      padding: '10px 8px', borderRadius: 8, textDecoration: 'none', color: 'inherit',
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--primary-subtle)' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
+                  >
+                    <span style={{ fontSize: 13.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {item.title}
+                      {item.remark && <span className="muted" style={{ marginLeft: 6, fontSize: 11 }}>[{item.remark}]</span>}
+                    </span>
+                    <span className="muted" style={{ fontSize: 12, flexShrink: 0 }}>
+                      {item.submitter} · {item.receiptDate.slice(0, 4)}.{item.receiptDate.slice(4, 6)}.{item.receiptDate.slice(6, 8)}
+                    </span>
+                  </a>
+                ))}
+              </div>
+            </Card>
+          ) : (
+            <Card style={{ marginBottom: 20 }}>
+              <div className="muted" style={{ textAlign: 'center', padding: '24px 0', fontSize: 13 }}>최근 공시가 없습니다</div>
+            </Card>
+          )}
+        </>
+      )}
+
+      {/* ── 커뮤니티 ── */}
+      {activeTab === 'community' && (
+        <Card style={{ marginBottom: 20, textAlign: 'center', padding: '48px 24px' }}>
+          <div className="muted" style={{ fontSize: 13, marginBottom: 16 }}>
+            {stock.companyName} 종목 게시판에서 다른 투자자들과 의견을 나눠보세요
+          </div>
+          <Button onClick={() => navigate(`/community?board=STOCK&ticker=${stock.ticker}&name=${encodeURIComponent(stock.companyName)}`)}>
+            <i className="bi bi-chat-square-text" /> 종목 게시판 열기
+          </Button>
         </Card>
       )}
 
       {/* ── 배당 정보 ── */}
-      {dividends.length > 0 && (
+      {activeTab === 'news' && dividends.length > 0 && (
         <Card style={{ marginBottom: 20, padding: 0, overflow: 'hidden' }}>
           <div style={{ padding: '20px 24px 12px' }}>
             <div className="section-title" style={{ marginBottom: 0 }}>배당 정보</div>

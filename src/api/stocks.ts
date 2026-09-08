@@ -128,6 +128,29 @@ export interface StockInvestmentIndicators {
   }
 }
 
+export interface InvestorTrendDay {
+  date: string
+  individualNet: number
+  foreignNet: number
+  institutionNet: number
+  institutionDetail: {
+    financialInvestment: number
+    insurance: number
+    investmentTrust: number
+    otherFinance: number
+    bank: number
+    pensionFund: number
+    privateFund: number
+    nation: number
+    otherCorp: number
+  }
+}
+
+export interface InvestorTrendResponse {
+  ticker: string
+  days: InvestorTrendDay[]
+}
+
 export const api_get_stocks_all = (params?: Omit<StockSearchParams, 'keyword' | 'query'>) =>
   api.get<StockListResponse | Stock[]>('/stocks/all', { params })
 
@@ -180,6 +203,9 @@ export const api_get_stock_financials = (ticker: string) =>
 
 export const api_get_stock_indicators = (ticker: string) =>
   api.get<StockInvestmentIndicators>(`/stocks/${ticker}/indicators`)
+
+export const api_get_stock_investor_trend = (ticker: string) =>
+  api.get<InvestorTrendResponse>(`/stocks/${ticker}/investor-trend`)
 
 export const api_get_stock_dividends = (ticker: string) =>
   api.get(`/stocks/${ticker}/dividends`)

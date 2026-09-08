@@ -32,6 +32,7 @@ import CommunityPostWritePage from './pages/CommunityPostWritePage'
 import AdminDashboardPage from './pages/admin/AdminDashboardPage'
 import AdminUsersPage from './pages/admin/AdminUsersPage'
 import AdminStocksPage from './pages/admin/AdminStocksPage'
+import AdminQuestionsPage from './pages/admin/AdminQuestionsPage'
 
 export default function App() {
   return (
@@ -77,6 +78,7 @@ export default function App() {
           <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
           <Route path="/admin/users" element={<AdminUsersPage />} />
           <Route path="/admin/stocks" element={<AdminStocksPage />} />
+          <Route path="/admin/questions" element={<AdminQuestionsPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

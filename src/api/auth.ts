@@ -16,7 +16,6 @@ export interface SignupRequest {
   nickname: string
   name: string
   phone: string
-  role: 'USER' | 'ADMIN'
 }
 
 export interface UserProfile {

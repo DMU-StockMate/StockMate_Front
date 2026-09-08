@@ -1,17 +1,17 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { useGlobalSearch } from '../../hooks/useGlobalSearch'
+import { useNotifications } from '../../hooks/useNotifications'
 import GlobalSearchDropdown from './GlobalSearchDropdown'
+import NotificationDropdown from './NotificationDropdown'
 
 interface TopbarProps {
   placeholder?: string
-  hasNotification?: boolean
   hasWishlist?: boolean
 }
 
 export default function Topbar({
   placeholder = '종목, 커뮤니티, 학습 검색',
-  hasNotification = false,
   hasWishlist = false,
 }: TopbarProps) {
   const { isLoggedIn, user } = useAuth()
@@ -23,6 +23,16 @@ export default function Topbar({
     stockResults, communityResults, learningResults,
     handle_select, handle_key_down,
   } = useGlobalSearch()
+  const {
+    open: notifOpen,
+    loading: notifLoading,
+    items: notifItems,
+    unreadCount,
+    handle_toggle: handle_notif_toggle,
+    handle_close: handle_notif_close,
+    handle_select: handle_notif_select,
+    handle_mark_all_read,
+  } = useNotifications()
 
   return (
     <header className="topbar">
@@ -52,10 +62,25 @@ export default function Topbar({
       <div className="top-actions">
         {isLoggedIn ? (
           <>
-            <button className="icon-btn" aria-label="알림">
-              <i className="bi bi-bell" />
-              {hasNotification && <span className="badge" />}
-            </button>
+            <div className="notification-anchor" onBlur={handle_notif_close}>
+              <button
+                type="button"
+                className="icon-btn"
+                aria-label="알림"
+                onClick={handle_notif_toggle}
+              >
+                <i className="bi bi-bell" />
+                {unreadCount > 0 && <span className="badge" />}
+              </button>
+              {notifOpen && (
+                <NotificationDropdown
+                  loading={notifLoading}
+                  items={notifItems}
+                  onSelect={handle_notif_select}
+                  onMarkAllRead={handle_mark_all_read}
+                />
+              )}
+            </div>
             <div className="top-profile">
               <div className="avatar-xs" />
               <span className="profile-name">{user?.name ?? '사용자'}님</span>
