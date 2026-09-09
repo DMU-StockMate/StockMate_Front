@@ -1,9 +1,17 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api_get_stock_rankings_rise, api_get_stock_rankings_volume, type StockRankingItem } from '../api/stocks'
-import { api_get_asset_rankings, type RankingUser } from '../api/trading'
+import { api_buy_stock, api_get_asset_rankings, api_sell_stock, type RankingUser } from '../api/trading'
 import { useAuth } from './useAuth'
 import { format_money as format_trade_money, format_rate as format_trade_rate, useTradeHistory } from './useTradeHistory'
+
+const get_error_message = (error: unknown) => {
+  const err = error as any
+  const message = err?.response?.data?.message
+  if (Array.isArray(message)) return message.join('\n')
+  if (typeof message === 'string') return message
+  return typeof err?.message === 'string' ? err.message : '주문 처리 중 오류가 발생했습니다.'
+}
 
 interface MarketStock {
   name: string
@@ -58,7 +66,9 @@ export function useTradePage() {
   const [assetRanks, setAssetRanks] = useState<RankingUser[]>([])
   const [loading, setLoading] = useState(true)
   const [rankLoading, setRankLoading] = useState(true)
-  const { summary, loading: assetLoading, trades } = useTradeHistory()
+  const [tradeLoading, setTradeLoading] = useState(false)
+  const [tradeMessage, setTradeMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const { summary, holdings, loading: assetLoading, trades, reload: reloadTradeHistory } = useTradeHistory()
 
   useEffect(() => {
     Promise.all([api_get_stock_rankings_rise(), api_get_stock_rankings_volume()])
@@ -82,9 +92,14 @@ export function useTradePage() {
     if (!selected) { navigate('/trade/stocks'); return }
     setModal({ open: true, mode, stock: selected })
     setQty(1)
+    setTradeMessage(null)
   }
 
-  const handle_close_modal = () => setModal({ open: false, mode: 'buy' })
+  const handle_close_modal = () => {
+    if (tradeLoading) return
+    setModal({ open: false, mode: 'buy' })
+    setTradeMessage(null)
+  }
 
   const unitPrice = modal.stock?.price ?? 0
   const virtualCash = summary.cashBalance
@@ -94,6 +109,35 @@ export function useTradePage() {
       ? Math.max(0, virtualCash - unitPrice * qty)
       : virtualCash + unitPrice * qty
   ).toLocaleString()
+  const heldQuantity = modal.stock ? holdings.find((h) => h.ticker === modal.stock?.ticker)?.quantity ?? 0 : 0
+  const canSubmitTrade = Boolean(modal.stock)
+    && qty > 0
+    && !tradeLoading
+    && (modal.mode === 'buy' ? unitPrice * qty <= virtualCash : heldQuantity >= qty)
+
+  const handle_submit_trade = async () => {
+    if (!modal.stock || !canSubmitTrade) return
+    setTradeLoading(true)
+    setTradeMessage(null)
+    const payload = { ticker: modal.stock.ticker, quantity: qty, ...(unitPrice > 0 ? { price: unitPrice } : {}) }
+
+    try {
+      const { data } = modal.mode === 'buy'
+        ? await api_buy_stock(payload)
+        : await api_sell_stock(payload)
+      setTradeMessage({
+        type: 'success',
+        text: `${data.trade.companyName} ${data.trade.quantity}주 ${modal.mode === 'buy' ? '매수' : '매도'} 체결`,
+      })
+      setModal({ open: false, mode: 'buy' })
+      setQty(1)
+      reloadTradeHistory()
+    } catch (error) {
+      setTradeMessage({ type: 'error', text: get_error_message(error) })
+    } finally {
+      setTradeLoading(false)
+    }
+  }
   const today = new Date().toDateString()
   const todayTradeCount = trades.filter((t) => new Date(t.createdAt).toDateString() === today).length
   const profitText = `${summary.totalProfit >= 0 ? '+' : ''}${format_trade_money(summary.totalProfit)} (${format_trade_rate(summary.totalProfitRate)})`
@@ -118,5 +162,6 @@ export function useTradePage() {
     todayTradeCount, profitText, rankingText, rankingSubText,
     handle_open_modal, handle_close_modal,
     format_trade_money,
+    canSubmitTrade, tradeLoading, tradeMessage, handle_submit_trade,
   }
 }

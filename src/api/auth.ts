@@ -61,6 +61,9 @@ export const api_update_user = (data: UpdateUserRequest) =>
 export const api_change_password = (data: ChangePasswordRequest) =>
   api.patch('/users/change-password', data)
 
+export const api_withdraw = (password: string) =>
+  api.delete('/users', { data: { password } })
+
 export const api_find_email = (data: { name: string; phone: string }) =>
   api.post<{ email: string }>('/users/find-email', data)
 

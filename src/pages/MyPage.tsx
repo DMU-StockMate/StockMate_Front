@@ -4,6 +4,8 @@ import Card from '../components/common/Card'
 import Button from '../components/common/Button'
 import Pill from '../components/common/Pill'
 import Progress from '../components/common/Progress'
+import Input from '../components/common/Input'
+import ConfirmModal from '../components/common/ConfirmModal'
 import { useMyPage } from '../hooks/useMyPage'
 
 const MENU = [
@@ -19,6 +21,8 @@ export default function MyPage() {
   const {
     user, stats, streakDays, riskTypeLabel,
     handle_logout,
+    withdrawOpen, withdrawPassword, setWithdrawPassword, withdrawError, withdrawLoading,
+    handle_open_withdraw, handle_close_withdraw, handle_withdraw,
   } = useMyPage()
 
   return (
@@ -113,7 +117,33 @@ export default function MyPage() {
             로그아웃
           </div>
         </div>
+        <div className="menu-row" style={{ color: 'var(--down)' }} onClick={handle_open_withdraw}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <i className="bi bi-person-x" style={{ fontSize: 16 }} />
+            회원 탈퇴
+          </div>
+        </div>
       </div>
+
+      <ConfirmModal
+        open={withdrawOpen}
+        title="정말 탈퇴하시겠어요?"
+        message="탈퇴 시 계정 정보와 학습 기록에 다시 접근할 수 없습니다. 계속하려면 비밀번호를 입력해주세요."
+        confirmText={withdrawLoading ? '처리 중...' : '탈퇴하기'}
+        cancelText="취소"
+        confirmDisabled={withdrawLoading}
+        onConfirm={handle_withdraw}
+        onCancel={handle_close_withdraw}
+      >
+        <Input
+          type="password"
+          placeholder="비밀번호"
+          value={withdrawPassword}
+          onChange={(e) => setWithdrawPassword(e.target.value)}
+          error={withdrawError}
+          autoFocus
+        />
+      </ConfirmModal>
     </AppLayout>
   )
 }

@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AppLayout from '../components/layout/AppLayout'
 import Card from '../components/common/Card'
@@ -17,7 +18,11 @@ export default function TradePage() {
     todayTradeCount, profitText, rankingText, rankingSubText,
     handle_open_modal, handle_close_modal,
     format_trade_money,
+    canSubmitTrade, tradeLoading, tradeMessage, handle_submit_trade,
   } = useTradePage()
+
+  const [qtyText, setQtyText] = useState(String(qty))
+  useEffect(() => { setQtyText(String(qty)) }, [qty])
 
   return (
     <AppLayout topbarPlaceholder="종목 검색">
@@ -192,11 +197,16 @@ export default function TradePage() {
             </div>
 
             <div className="trade-tab" style={{ marginBottom: 18 }}>
-              <button className={modal.mode === 'buy' ? 'active-tab' : 'inactive-tab'} onClick={() => setModal((m) => ({ ...m, mode: 'buy' }))}>매수</button>
+              <button
+                className={modal.mode === 'buy' ? 'active-tab' : 'inactive-tab'}
+                disabled={tradeLoading}
+                onClick={() => { setModal((m) => ({ ...m, mode: 'buy' })); setQty(1) }}
+              >매수</button>
               <button
                 className={modal.mode === 'sell' ? 'active-tab' : 'inactive-tab'}
                 style={{ ...(modal.mode === 'sell' ? { background: 'var(--down)', color: '#fff' } : {}) }}
-                onClick={() => setModal((m) => ({ ...m, mode: 'sell' }))}
+                disabled={tradeLoading}
+                onClick={() => { setModal((m) => ({ ...m, mode: 'sell' })); setQty(1) }}
               >매도</button>
             </div>
 
@@ -221,9 +231,28 @@ export default function TradePage() {
             <div style={{ marginBottom: 18 }}>
               <div className="label" style={{ marginBottom: 10 }}>수량 (1주 단위)</div>
               <div className="stepper">
-                <button onClick={() => setQty((q) => Math.max(1, q - 1))}>−</button>
-                <div className="qty">{qty}</div>
-                <button onClick={() => setQty((q) => q + 1)}>+</button>
+                <button disabled={tradeLoading} onClick={() => setQty((q) => Math.max(1, q - 1))}>−</button>
+                <input
+                  className="qty"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={qtyText}
+                  disabled={tradeLoading}
+                  onChange={(e) => {
+                    const raw = e.target.value
+                    if (raw !== '' && !/^\d+$/.test(raw)) {
+                      window.alert('숫자만 입력할 수 있습니다.')
+                      return
+                    }
+                    setQtyText(raw)
+                    const n = Math.floor(Number(raw))
+                    if (raw !== '' && Number.isFinite(n) && n > 0) setQty(n)
+                  }}
+                  onBlur={() => { if (!qtyText || Number(qtyText) < 1) setQty(1) }}
+                  style={{ width: 80, textAlign: 'center', border: 'none', outline: 'none', background: 'transparent' }}
+                />
+                <button disabled={tradeLoading} onClick={() => setQty((q) => q + 1)}>+</button>
               </div>
             </div>
 
@@ -242,12 +271,19 @@ export default function TradePage() {
               </div>
             </div>
 
+            {tradeMessage?.type === 'error' && (
+              <div style={{ marginBottom: 14, color: 'var(--up)', fontSize: 13 }}>
+                {tradeMessage.text}
+              </div>
+            )}
+
             <button
               className={`btn btn-lg ${modal.mode === 'buy' ? 'btn-up' : 'btn-down'}`}
               style={{ width: '100%' }}
-              onClick={handle_close_modal}
+              disabled={!canSubmitTrade}
+              onClick={handle_submit_trade}
             >
-              {modal.mode === 'buy' ? '매수하기' : '매도하기'}
+              {tradeLoading ? '주문 처리 중...' : modal.mode === 'buy' ? '매수하기' : '매도하기'}
             </button>
           </div>
         </div>

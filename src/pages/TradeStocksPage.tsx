@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AppLayout from '../components/layout/AppLayout'
 import Card from '../components/common/Card'
@@ -42,6 +43,8 @@ export default function TradeStocksPage() {
   const navigate = useNavigate()
   const tradeStocks = useTradeStocks()
   const watchlist = useWatchlist()
+  const [qtyText, setQtyText] = useState(String(tradeStocks.tradeQty))
+  useEffect(() => { setQtyText(String(tradeStocks.tradeQty)) }, [tradeStocks.tradeQty])
   const isFilterActive = (filter: CombinedFilter) =>
     filter.type === 'view'
       ? tradeStocks.viewFilter === filter.key && tradeStocks.market === '전체'
@@ -346,7 +349,26 @@ export default function TradeStocksPage() {
               <div className="label" style={{ marginBottom: 10 }}>수량 (1주 단위)</div>
               <div className="stepper">
                 <button disabled={tradeStocks.tradeLoading} onClick={() => tradeStocks.setTradeQty((qty) => Math.max(1, qty - 1))}>−</button>
-                <div className="qty">{tradeStocks.tradeQty}</div>
+                <input
+                  className="qty"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={qtyText}
+                  disabled={tradeStocks.tradeLoading}
+                  onChange={(e) => {
+                    const raw = e.target.value
+                    if (raw !== '' && !/^\d+$/.test(raw)) {
+                      window.alert('숫자만 입력할 수 있습니다.')
+                      return
+                    }
+                    setQtyText(raw)
+                    const n = Math.floor(Number(raw))
+                    if (raw !== '' && Number.isFinite(n) && n > 0) tradeStocks.setTradeQty(n)
+                  }}
+                  onBlur={() => { if (!qtyText || Number(qtyText) < 1) tradeStocks.setTradeQty(1) }}
+                  style={{ width: 80, textAlign: 'center', border: 'none', outline: 'none', background: 'transparent' }}
+                />
                 <button disabled={tradeStocks.tradeLoading} onClick={() => tradeStocks.setTradeQty((qty) => qty + 1)}>+</button>
               </div>
             </div>
