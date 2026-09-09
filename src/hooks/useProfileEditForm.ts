@@ -3,7 +3,7 @@ import type { ChangeEvent, FormEvent } from 'react'
 import { api_me, api_reset_password, api_update_user } from '../api/auth'
 import { api_send_email_code, api_verify_email_code } from '../api/email'
 import { useAuth } from './useAuth'
-import { getPasswordStrength } from '../utils/validation'
+import { getPasswordStrength, validateNewPassword } from '../utils/validation'
 
 export interface ProfileFormValues {
   name: string
@@ -26,13 +26,6 @@ export interface ProfileEditErrors {
   confirmPassword?: string
   profileGeneral?: string
   passwordGeneral?: string
-}
-
-const password_error = (password: string) => {
-  if (!password) return '새 비밀번호를 입력해주세요'
-  if (!/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]{8,20}$/.test(password)) {
-    return '비밀번호는 8~20자이며, 영문과 숫자를 포함해야 합니다.'
-  }
 }
 
 const error_message = (err: any, fallback: string) => {
@@ -209,7 +202,7 @@ export function useProfileEditForm() {
     e.preventDefault()
     const nextErrors: ProfileEditErrors = {}
     if (!codeVerified) nextErrors.code = '이메일 인증을 완료해주세요'
-    const newPasswordError = password_error(passwordForm.newPassword)
+    const newPasswordError = validateNewPassword(passwordForm.newPassword)
     if (newPasswordError) nextErrors.newPassword = newPasswordError
     if (!passwordForm.confirmPassword) nextErrors.confirmPassword = '새 비밀번호를 다시 입력해주세요'
     else if (passwordForm.newPassword !== passwordForm.confirmPassword) {

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import type { FormEvent, ChangeEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { validateEmail, validatePassword, getPasswordStrength } from '../utils/validation'
+import { validateEmail, validateNewPassword, getPasswordStrength } from '../utils/validation'
 import { api_signup } from '../api/auth'
 import { api_send_email_code, api_verify_email_code } from '../api/email'
 
@@ -116,7 +116,7 @@ export function useSignupForm() {
     else if (form.nickname.length < 2 || form.nickname.length > 20) errs.nickname = '닉네임은 2~20자여야 합니다'
     if (!form.phone.trim()) errs.phone = '전화번호를 입력해주세요'
     else if (!/^01[0-9]-?\d{3,4}-?\d{4}$/.test(form.phone)) errs.phone = '올바른 전화번호 형식이 아닙니다 (예: 010-1234-5678)'
-    const passwordErr = validatePassword(form.password)
+    const passwordErr = validateNewPassword(form.password)
     if (passwordErr) errs.password = passwordErr
     if (!form.confirmPassword) errs.confirmPassword = '비밀번호를 다시 입력해주세요'
     else if (form.password !== form.confirmPassword) errs.confirmPassword = '비밀번호가 일치하지 않습니다'
