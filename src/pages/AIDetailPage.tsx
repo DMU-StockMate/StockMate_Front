@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import AppLayout from '../components/layout/AppLayout'
 import Card from '../components/common/Card'
@@ -30,6 +30,12 @@ export default function AIDetailPage() {
   const [activeTab, setActiveTab] = useState('1D')
   const [chat, setChat] = useState<ChatMessage[]>(INITIAL_CHAT)
   const [inputText, setInputText] = useState('')
+  const chatListRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const el = chatListRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [chat])
 
   const stockName = code === '005930' || code === '삼성전자' ? '삼성전자' : decodeURIComponent(code)
 
@@ -154,7 +160,7 @@ export default function AIDetailPage() {
             </div>
           </div>
 
-          <div style={{ flex: 1, overflowY: 'auto', padding: '18px 20px' }}>
+          <div ref={chatListRef} style={{ flex: 1, overflowY: 'auto', padding: '18px 20px' }}>
             <div className="chat-list">
               {chat.map((msg, i) => (
                 <div key={i} className={`bubble ${msg.role}`}>{msg.text}</div>

@@ -227,8 +227,14 @@ export default function AIPage() {
   const [statusText, setStatusText] = useState('AI 서버 연결 준비 중')
   const nextChatIdRef = useRef(2)
   const nextMessageIdRef = useRef(2)
+  const messageListRef = useRef<HTMLDivElement>(null)
 
   const activeChat = histories.find((chat) => chat.id === activeChatId) ?? histories[0]
+
+  useEffect(() => {
+    const el = messageListRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [activeChat.messages])
 
   useEffect(() => {
     let alive = true
@@ -413,7 +419,7 @@ export default function AIPage() {
             </span>
           </header>
 
-          <div className="ai-message-list">
+          <div className="ai-message-list" ref={messageListRef}>
             {activeChat.messages.map((message) => (
               <article key={message.id} className={`ai-message ${message.role}`}>
                 {message.role === 'assistant' ? (
