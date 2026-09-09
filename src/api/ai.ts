@@ -85,11 +85,12 @@ export type AiStreamEvent =
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
+// LLM 문제 생성은 30초를 넘기는 경우가 흔해 넉넉히 잡음
 export const api_generate_from_wrong_notes = (data: GenerateFromWrongNotesRequest) =>
-  api.post<GenerateQuestionBatchResponse>('/ai/questions/generate', data, { timeout: 30000 })
+  api.post<GenerateQuestionBatchResponse>('/ai/questions/generate', data, { timeout: 120000 })
 
 export const api_generate_from_prompt = (data: GenerateFromPromptRequest) =>
-  api.post<GenerateQuestionBatchResponse>('/ai/questions/generate/prompt', data, { timeout: 30000 })
+  api.post<GenerateQuestionBatchResponse>('/ai/questions/generate/prompt', data, { timeout: 120000 })
 
 export const api_get_chat_sessions = (scope?: 'general' | 'question') =>
   api.get<AiChatSessionRecord[]>('/ai/chat-sessions', {

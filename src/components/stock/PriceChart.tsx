@@ -117,12 +117,17 @@ export default function PriceChart({ data }: PriceChartProps) {
     if (index >= 0 && index < candles.length) setSelectedIndex(index)
   }
 
+  const firstDate = candles[0]?.date
+
   useEffect(() => {
+    // n/firstDate만 봐서 5초마다 실시간 시세로 마지막 캔들만 갱신되는 경우엔
+    // (배열 참조는 바뀌어도 개수/최초일자는 그대로) 스크롤 위치를 건드리지 않는다.
+    // 종목/기간 전환이나 신규 거래일 추가처럼 실제 데이터셋이 바뀔 때만 최신 위치로 이동.
     const el = scrollRef.current
     if (!el) return
     el.scrollLeft = el.scrollWidth
     setScrollLeft(el.scrollLeft)
-  }, [data, zoom])
+  }, [firstDate, n, zoom])
 
   const handle_scroll = (event: React.UIEvent<HTMLDivElement>) => {
     setScrollLeft(event.currentTarget.scrollLeft)

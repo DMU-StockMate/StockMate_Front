@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { api_get_stock_prices } from '../api/stocks'
+import { api_get_asset_history } from '../api/trading'
 import { api_get_questions } from '../api/learning'
 import { format_money, parse_number, useTradeHistory } from './useTradeHistory'
 import { as_record, get_array } from '../utils/normalize'
@@ -51,29 +51,11 @@ export function useDashboard() {
   useEffect(() => {
     let canceled = false
     const load = async () => {
-      if (holdings.length === 0) {
-        setAssetTrend(summary.totalAsset > 0 ? [summary.totalAsset, summary.totalAsset] : [])
-        return
-      }
       setChartLoading(true)
       try {
         const days = PERIOD_DAYS[period] ?? 30
-        const results = await Promise.allSettled(
-          holdings.map((h) => api_get_stock_prices(h.ticker, { days, limit: days })),
-        )
-        const valuesByDate = new Map<string, number>()
-        results.forEach((result, index) => {
-          if (result.status !== 'fulfilled') return
-          const quantity = holdings[index]?.quantity ?? 0
-          result.value.data.prices?.forEach((price) => {
-            const closePrice = parse_number(price.closePrice)
-            if (!price.tradeDate || closePrice <= 0 || quantity <= 0) return
-            valuesByDate.set(price.tradeDate, (valuesByDate.get(price.tradeDate) ?? summary.cashBalance) + closePrice * quantity)
-          })
-        })
-        const nextTrend = Array.from(valuesByDate.entries())
-          .sort(([a], [b]) => a.localeCompare(b))
-          .map(([, v]) => v)
+        const { data } = await api_get_asset_history({ days })
+        const nextTrend = data.map((snapshot) => parse_number(snapshot.totalAssetValue))
         if (!canceled) setAssetTrend(nextTrend.length > 0 ? nextTrend : [summary.totalAsset, summary.totalAsset])
       } catch {
         if (!canceled) setAssetTrend(summary.totalAsset > 0 ? [summary.totalAsset, summary.totalAsset] : [])
@@ -83,7 +65,7 @@ export function useDashboard() {
     }
     void load()
     return () => { canceled = true }
-  }, [holdings, period, summary.cashBalance, summary.totalAsset])
+  }, [period, summary.totalAsset])
 
   useEffect(() => {
     let canceled = false

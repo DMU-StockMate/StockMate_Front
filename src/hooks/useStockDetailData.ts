@@ -12,6 +12,7 @@ import {
   api_get_stock_investor_trend,
   api_get_stock_revenue_composition,
   api_subscribe_stock_realtime,
+  get_stock_price_stream_url,
   type InvestorTrendDay,
   type RevenueCompositionItem,
   type StockDetail,
@@ -313,31 +314,34 @@ export function useStockDetailData(ticker?: string) {
 
     void api_subscribe_stock_realtime([activeTicker]).catch(() => undefined)
 
-    const updateRealtimePrice = async () => {
-      try {
-        const { data } = await api_get_stock_latest_price(activeTicker)
-        const realtimePayload = unwrap_payload(data)
+    const applyRealtimePrice = (payload: Record<string, unknown>) => {
+      setSummary((prev) => ({
+        ...(prev ?? {}),
+        ...payload,
+        ticker: activeTicker,
+      }) as StockSummary)
+      setChartData((prev) =>
+        merge_realtime_price_into_chart(prev, payload, period),
+      )
+    }
 
-        setSummary((prev) => ({
-          ...(prev ?? {}),
-          ...realtimePayload,
-          ticker: activeTicker,
-        }) as StockSummary)
-        setChartData((prev) =>
-          merge_realtime_price_into_chart(prev, realtimePayload, period),
-        )
+    // 5초 폴링 대신 SSE로 체결 틱마다 즉시 반영. 초기 1회는 REST로 캐시된 값을 먼저 보여줘
+    // 스트림 연결/첫 틱을 기다리는 동안 화면이 비어 보이지 않게 한다.
+    api_get_stock_latest_price(activeTicker)
+      .then(({ data }) => applyRealtimePrice(unwrap_payload(data)))
+      .catch(() => undefined)
+
+    const source = new EventSource(get_stock_price_stream_url(activeTicker))
+    source.onmessage = (event) => {
+      try {
+        applyRealtimePrice(unwrap_payload(JSON.parse(event.data)))
       } catch {
-        // 실시간 가격이 아직 캐시에 없으면 기존 상세 정보를 유지합니다.
+        // 파싱 실패한 틱은 무시하고 다음 틱을 기다립니다.
       }
     }
 
-    void updateRealtimePrice()
-    const timer = window.setInterval(() => {
-      void updateRealtimePrice()
-    }, 5000)
-
     return () => {
-      window.clearInterval(timer)
+      source.close()
     }
   }, [activeTicker, period])
 

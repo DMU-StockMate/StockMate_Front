@@ -14,7 +14,7 @@ export default function TradePage() {
     riseStocks, volumeStocks, loading,
     summary, assetLoading,
     unitPrice, virtualCash, totalPrice, remaining,
-    todayTradeCount, profitText,
+    todayTradeCount, profitText, rankingText, rankingSubText,
     handle_open_modal, handle_close_modal,
     format_trade_money,
   } = useTradePage()
@@ -27,7 +27,7 @@ export default function TradePage() {
           <div className="page-sub">1주 단위로 안전하게 실전 감각을 익혀보세요</div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <Button variant="outline">
+          <Button variant="outline" onClick={() => navigate('/ranking')}>
             <i className="bi bi-trophy" />
             랭킹전
           </Button>
@@ -93,10 +93,10 @@ export default function TradePage() {
       <div className="ranking-banner" style={{ marginBottom: 20 }}>
         <div className="trophy-ico"><i className="bi bi-trophy-fill" /></div>
         <div style={{ flex: 1 }}>
-          <div className="strong" style={{ fontSize: 14 }}>이번 주 랭킹전 진행 중 — 현재 순위 27위 / 312명</div>
-          <div style={{ fontSize: 12, marginTop: 2 }}>상위 10% 진입 시 추가 자금 +10,000원 · 5월 6일 마감</div>
+          <div className="strong" style={{ fontSize: 14 }}>랭킹전 진행 중 — {rankingText}</div>
+          <div style={{ fontSize: 12, marginTop: 2 }}>{rankingSubText}</div>
         </div>
-        <button className="btn btn-sm" style={{ background: '#fff', color: '#92400E' }}>참여하기 →</button>
+        <button className="btn btn-sm" style={{ background: '#fff', color: '#92400E' }} onClick={() => navigate('/ranking')}>랭킹 보기 →</button>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 20 }}>

@@ -1,5 +1,10 @@
 import { api } from './axios'
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+
+export const get_stock_price_stream_url = (ticker: string) =>
+  `${API_BASE_URL}/stocks/${ticker}/price/stream`
+
 export interface Stock {
   stockId: number
   ticker: string

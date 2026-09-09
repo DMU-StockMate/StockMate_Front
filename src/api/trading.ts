@@ -62,6 +62,13 @@ export interface TradeResult {
   } | null
 }
 
+export interface AssetSnapshot {
+  date: string
+  cashBalance: string
+  stockValue: string
+  totalAssetValue: string
+}
+
 export interface RankingUser {
   rank: number
   userId: number
@@ -88,6 +95,9 @@ export const api_buy_stock = (data: CreateTradeRequest) =>
 
 export const api_sell_stock = (data: CreateTradeRequest) =>
   api.post<TradeResult>('/trading/sell', data)
+
+export const api_get_asset_history = (params?: { days?: number }) =>
+  api.get<AssetSnapshot[]>('/trading/asset-history', { params })
 
 export const api_get_asset_rankings = (params?: { limit?: number }) =>
   api.get<RankingUser[]>('/trading/rankings/assets', { params })
