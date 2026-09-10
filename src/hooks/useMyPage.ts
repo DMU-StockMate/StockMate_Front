@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from './useAuth'
 import { api_logout, api_withdraw } from '../api/auth'
@@ -6,6 +6,9 @@ import { api_get_statistics, api_get_histories, type LearningStatistics } from '
 import { api_get_investment_profile, type InvestmentProfileResult } from '../api/investmentProfile'
 import { RISK_TYPE_LABELS } from '../constants/riskProfile'
 import { calc_streak_days } from '../utils/streak'
+
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
+  || '407983056207-28p6ji7lqnmfri8uvu2sscuehstmgrja.apps.googleusercontent.com'
 
 export function useMyPage() {
   const { user, logout } = useAuth()
@@ -17,6 +20,7 @@ export function useMyPage() {
   const [withdrawPassword, setWithdrawPassword] = useState('')
   const [withdrawError, setWithdrawError] = useState('')
   const [withdrawLoading, setWithdrawLoading] = useState(false)
+  const googleWithdrawButtonRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     api_get_statistics().then(({ data }) => setStats(data)).catch(() => {})
@@ -25,6 +29,56 @@ export function useMyPage() {
       .then(({ data }) => setInvestmentProfile(data))
       .catch(() => setInvestmentProfile(null))
   }, [])
+
+  useEffect(() => {
+    if (!withdrawOpen || !googleWithdrawButtonRef.current) return
+
+    const withdraw_with_google = async (googleIdToken: string) => {
+      setWithdrawLoading(true)
+      setWithdrawError('')
+      try {
+        await api_withdraw({ googleIdToken })
+        setWithdrawOpen(false)
+        logout()
+        navigate('/login')
+      } catch (err: any) {
+        const msg = err?.response?.data?.message
+        setWithdrawError(Array.isArray(msg) ? msg[0] : msg ?? '회원 탈퇴에 실패했습니다.')
+      } finally {
+        setWithdrawLoading(false)
+      }
+    }
+
+    const render = () => {
+      const google = (window as any).google
+      if (!google?.accounts?.id || !googleWithdrawButtonRef.current) return
+      google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: (response: { credential?: string }) => {
+          if (response.credential) void withdraw_with_google(response.credential)
+        },
+      })
+      google.accounts.id.renderButton(googleWithdrawButtonRef.current, {
+        theme: 'outline',
+        size: 'large',
+        width: googleWithdrawButtonRef.current.offsetWidth,
+        text: 'continue_with',
+      })
+    }
+
+    if ((window as any).google?.accounts?.id) {
+      render()
+      return
+    }
+
+    const script = document.createElement('script')
+    script.src = 'https://accounts.google.com/gsi/client'
+    script.async = true
+    script.defer = true
+    script.onload = render
+    script.onerror = () => setWithdrawError('구글 인증 스크립트를 불러오지 못했습니다.')
+    document.head.appendChild(script)
+  }, [withdrawOpen, logout, navigate])
 
   const handle_logout = async () => {
     try {
@@ -57,7 +111,7 @@ export function useMyPage() {
     setWithdrawLoading(true)
     setWithdrawError('')
     try {
-      await api_withdraw(withdrawPassword)
+      await api_withdraw({ password: withdrawPassword })
       setWithdrawOpen(false)
       logout()
       navigate('/login')
@@ -86,6 +140,7 @@ export function useMyPage() {
     setWithdrawPassword,
     withdrawError,
     withdrawLoading,
+    googleWithdrawButtonRef,
     handle_open_withdraw,
     handle_close_withdraw,
     handle_withdraw,

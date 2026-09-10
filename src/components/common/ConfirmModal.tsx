@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import Button from './Button'
 
 interface ConfirmModalProps {
@@ -26,6 +26,15 @@ export default function ConfirmModal({
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
+  useEffect(() => {
+    if (!open) return
+    const handle_key_down = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onCancel()
+    }
+    window.addEventListener('keydown', handle_key_down)
+    return () => window.removeEventListener('keydown', handle_key_down)
+  }, [open, onCancel])
+
   if (!open) return null
 
   return (

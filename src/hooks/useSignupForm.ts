@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { validateEmail, validateNewPassword, getPasswordStrength } from '../utils/validation'
 import { api_signup } from '../api/auth'
 import { api_send_email_code, api_verify_email_code } from '../api/email'
+import { useGoogleAuth } from './useGoogleAuth'
 
 interface FormValues {
   name: string
@@ -42,6 +43,7 @@ export function useSignupForm() {
   const [sendCodeLoading, setSendCodeLoading] = useState(false)
   const [verifyCodeLoading, setVerifyCodeLoading] = useState(false)
   const sentEmailRef = useRef('')
+  const { googleButtonRef, googleLoading } = useGoogleAuth((message) => setErrors({ general: message }))
 
   useEffect(() => {
     if (!emailCodeSent || emailTimer <= 0) return
@@ -148,6 +150,8 @@ export function useSignupForm() {
     errors,
     interests,
     loading,
+    googleLoading,
+    googleButtonRef,
     passwordStrength,
     emailCodeSent,
     emailVerified,

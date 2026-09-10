@@ -4,6 +4,7 @@ import { useGlobalSearch } from '../../hooks/useGlobalSearch'
 import { useNotifications } from '../../hooks/useNotifications'
 import GlobalSearchDropdown from './GlobalSearchDropdown'
 import NotificationDropdown from './NotificationDropdown'
+import ProfileAvatar from '../common/ProfileAvatar'
 
 interface TopbarProps {
   placeholder?: string
@@ -81,7 +82,7 @@ export default function Topbar({
               )}
             </div>
             <div className="top-profile">
-              <div className="avatar-xs" />
+              <ProfileAvatar className="avatar-xs" src={user?.profileImageUrl} name={user?.nickname || user?.name} />
               <span className="profile-name">{user?.name ?? '사용자'}님</span>
             </div>
           </>

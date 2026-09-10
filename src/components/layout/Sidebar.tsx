@@ -1,6 +1,7 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../hooks/useAuth'
+import ProfileAvatar from '../common/ProfileAvatar'
 
 interface NavItemDef {
   path: string
@@ -193,7 +194,7 @@ export default function Sidebar() {
       <div className="sidebar-footer">
         {isLoggedIn ? (
           <>
-            <div className="avatar-sm" />
+            <ProfileAvatar className="avatar-sm" src={user?.profileImageUrl} name={user?.nickname || user?.name} />
             <div style={{ flex: 1 }}>
               <div className="user-name">{user?.name ?? '사용자'}</div>
               <div className="user-level">{user?.level ?? '-'}</div>

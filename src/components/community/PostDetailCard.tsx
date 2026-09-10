@@ -34,7 +34,7 @@ export default function PostDetailCard({
         <span className="muted" style={{ fontSize: 12 }}>· 조회 {post.viewCount.toLocaleString()}</span>
       </div>
 
-      <h1 style={{ fontSize: 22, marginBottom: 12 }}>{post.title}</h1>
+      <h1 className="community-text" style={{ fontSize: 22, marginBottom: 12 }}>{post.title}</h1>
 
       <div className="row" style={{ justifyContent: 'space-between', marginBottom: 20 }}>
         <div className="muted" style={{ fontSize: 13 }}>{post.author?.nickname ?? '탈퇴한 사용자'}</div>
@@ -46,7 +46,7 @@ export default function PostDetailCard({
         )}
       </div>
 
-      <div style={{ whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.7, color: 'var(--t1)', marginBottom: 20 }}>
+      <div className="community-text" style={{ whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.7, color: 'var(--t1)', marginBottom: 20 }}>
         {post.content}
       </div>
 

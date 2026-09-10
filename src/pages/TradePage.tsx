@@ -23,6 +23,14 @@ export default function TradePage() {
 
   const [qtyText, setQtyText] = useState(String(qty))
   useEffect(() => { setQtyText(String(qty)) }, [qty])
+  useEffect(() => {
+    if (!modal.open) return
+    const handle_key_down = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') handle_close_modal()
+    }
+    window.addEventListener('keydown', handle_key_down)
+    return () => window.removeEventListener('keydown', handle_key_down)
+  }, [modal.open, handle_close_modal])
 
   return (
     <AppLayout topbarPlaceholder="종목 검색">
@@ -124,7 +132,7 @@ export default function TradePage() {
               </thead>
               <tbody>
                 {riseStocks.slice(0, 5).map((stock) => (
-                  <tr key={stock.ticker}>
+                  <tr key={stock.ticker} onClick={() => navigate(`/trade/stocks/${stock.ticker}`)} style={{ cursor: 'pointer' }}>
                     <td>
                       <div className="stock-cell">
                         <div className="logo-sm">{stock.name.slice(0, 2)}</div>
@@ -139,8 +147,8 @@ export default function TradePage() {
                     <td className={stock.up ? 'price-up' : 'price-down'}>{format_rate(stock.changeRate)}</td>
                     <td>
                       <div style={{ display: 'flex', gap: 6 }}>
-                        <button className="btn btn-sm btn-up" onClick={() => handle_open_modal('buy', stock)}>매수</button>
-                        <button className="btn btn-sm btn-outline" onClick={() => handle_open_modal('sell', stock)}>매도</button>
+                        <button className="btn btn-sm btn-up" onClick={(e) => { e.stopPropagation(); handle_open_modal('buy', stock) }}>매수</button>
+                        <button className="btn btn-sm btn-outline" onClick={(e) => { e.stopPropagation(); handle_open_modal('sell', stock) }}>매도</button>
                       </div>
                     </td>
                   </tr>
@@ -166,7 +174,12 @@ export default function TradePage() {
           ) : volumeStocks.length === 0 ? (
             <div style={{ padding: '26px 0', textAlign: 'center', color: 'var(--t3)' }}>거래량 데이터가 없습니다.</div>
           ) : volumeStocks.slice(0, 5).map((stock, i) => (
-            <div key={stock.ticker} className="activity-row">
+            <div
+              key={stock.ticker}
+              className="activity-row"
+              onClick={() => navigate(`/trade/stocks/${stock.ticker}`)}
+              style={{ cursor: 'pointer' }}
+            >
               <div className="left">
                 <span style={{
                   width: 24, height: 24, borderRadius: 8, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -250,7 +263,6 @@ export default function TradePage() {
                     if (raw !== '' && Number.isFinite(n) && n > 0) setQty(n)
                   }}
                   onBlur={() => { if (!qtyText || Number(qtyText) < 1) setQty(1) }}
-                  style={{ width: 80, textAlign: 'center', border: 'none', outline: 'none', background: 'transparent' }}
                 />
                 <button disabled={tradeLoading} onClick={() => setQty((q) => q + 1)}>+</button>
               </div>

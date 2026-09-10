@@ -26,10 +26,13 @@ export default function ProfileEditPage() {
         <ProfileInfoForm
           email={profileEdit.email}
           form={profileEdit.profileForm}
+          profileImageUrl={profileEdit.profileImageUrl}
+          profileImagePreviewUrl={profileEdit.profileImagePreviewUrl}
           errors={profileEdit.errors}
           saved={profileEdit.profileSaved}
           loading={profileEdit.profileLoading}
           onFieldChange={profileEdit.handleProfileField}
+          onProfileImageChange={profileEdit.handleProfileImageChange}
           onSubmit={profileEdit.handleProfileSubmit}
         />
 

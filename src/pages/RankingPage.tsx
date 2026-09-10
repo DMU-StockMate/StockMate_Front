@@ -2,14 +2,18 @@ import { useEffect, useMemo, useState } from 'react'
 import AppLayout from '../components/layout/AppLayout'
 import Card from '../components/common/Card'
 import Button from '../components/common/Button'
+import Pagination from '../components/common/Pagination'
 import {
   api_get_asset_rankings,
   api_get_weekly_growth_rankings,
   type RankingUser,
 } from '../api/trading'
 import { fmt_price, fmt_rate, to_num } from '../utils/format'
+import { resolve_media_url } from '../utils/media'
 
 type RankingTab = 'assets' | 'growth'
+const RANKING_LIMIT = 100
+const PAGE_SIZE = 20
 
 const tabs: Array<{ key: RankingTab; label: string; icon: string }> = [
   { key: 'assets', label: '자산 랭킹', icon: 'bi-wallet2' },
@@ -33,7 +37,7 @@ function RankRow({ user, tab }: { user: RankingUser; tab: RankingTab }) {
       <td>
         <div className="stock-cell">
           {user.profileImageUrl ? (
-            <img className="ranking-avatar" src={user.profileImageUrl} alt="" />
+            <img className="ranking-avatar" src={resolve_media_url(user.profileImageUrl)} alt="" />
           ) : (
             <div className="ranking-avatar">{user.nickname.slice(0, 2)}</div>
           )}
@@ -55,6 +59,7 @@ export default function RankingPage() {
   const [tab, setTab] = useState<RankingTab>('assets')
   const [assetRanks, setAssetRanks] = useState<RankingUser[]>([])
   const [growthRanks, setGrowthRanks] = useState<RankingUser[]>([])
+  const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -62,8 +67,8 @@ export default function RankingPage() {
     setLoading(true)
     setError('')
     Promise.all([
-      api_get_asset_rankings({ limit: 30 }),
-      api_get_weekly_growth_rankings({ limit: 30 }),
+      api_get_asset_rankings({ limit: RANKING_LIMIT }),
+      api_get_weekly_growth_rankings({ limit: RANKING_LIMIT }),
     ])
       .then(([assetRes, growthRes]) => {
         setAssetRanks(assetRes.data)
@@ -74,6 +79,8 @@ export default function RankingPage() {
   }, [])
 
   const ranks = tab === 'assets' ? assetRanks : growthRanks
+  const totalPages = Math.max(1, Math.ceil(ranks.length / PAGE_SIZE))
+  const pageRanks = ranks.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
   const top3 = ranks.slice(0, 3)
   const leader = ranks[0]
   const summary = useMemo(() => {
@@ -96,7 +103,7 @@ export default function RankingPage() {
             <button
               key={item.key}
               className={tab === item.key ? 'active' : ''}
-              onClick={() => setTab(item.key)}
+              onClick={() => { setTab(item.key); setPage(1) }}
             >
               <i className={`bi ${item.icon}`} />
               {item.label}
@@ -190,11 +197,14 @@ export default function RankingPage() {
             {!loading && ranks.length === 0 && (
               <tr><td colSpan={4} className="ranking-empty">표시할 랭킹이 없습니다.</td></tr>
             )}
-            {!loading && ranks.map((user) => (
+            {!loading && pageRanks.map((user) => (
               <RankRow key={user.userId} user={user} tab={tab} />
             ))}
           </tbody>
         </table>
+        {!loading && ranks.length > PAGE_SIZE && (
+          <Pagination page={page} totalPages={totalPages} onChange={setPage} />
+        )}
       </Card>
     </AppLayout>
   )

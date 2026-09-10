@@ -5,6 +5,10 @@ export interface LoginRequest {
   password: string
 }
 
+export interface GoogleLoginRequest {
+  idToken: string
+}
+
 export interface LoginResponse {
   accessToken: string
   refreshToken: string
@@ -38,6 +42,11 @@ export interface UpdateUserRequest {
   phone?: string
 }
 
+export interface ProfileImageResponse {
+  message: string
+  profileImageUrl: string
+}
+
 export interface ChangePasswordRequest {
   currentPassword: string
   newPassword: string
@@ -45,6 +54,9 @@ export interface ChangePasswordRequest {
 
 export const api_login = (data: LoginRequest) =>
   api.post<LoginResponse>('/users/login', data)
+
+export const api_google_login = (data: GoogleLoginRequest) =>
+  api.post<LoginResponse>('/users/google-login', data)
 
 export const api_signup = (data: SignupRequest) =>
   api.post('/users/signup', data)
@@ -58,11 +70,17 @@ export const api_logout = () =>
 export const api_update_user = (data: UpdateUserRequest) =>
   api.patch<UserProfile>('/users', data)
 
+export const api_upload_profile_image = (file: File) => {
+  const formData = new FormData()
+  formData.append('file', file)
+  return api.post<ProfileImageResponse>('/users/me/profile-image', formData)
+}
+
 export const api_change_password = (data: ChangePasswordRequest) =>
   api.patch('/users/change-password', data)
 
-export const api_withdraw = (password: string) =>
-  api.delete('/users', { data: { password } })
+export const api_withdraw = (data: { password?: string; googleIdToken?: string }) =>
+  api.delete('/users', { data })
 
 export const api_find_email = (data: { name: string; phone: string }) =>
   api.post<{ email: string }>('/users/find-email', data)

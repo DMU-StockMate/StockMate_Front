@@ -3,8 +3,9 @@ import type { FormEvent } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from './useAuth'
 import { validateEmail, validatePassword } from '../utils/validation'
-import { api_login, api_me } from '../api/auth'
+import { api_login, api_me, type LoginResponse } from '../api/auth'
 import { api_get_investment_profile } from '../api/investmentProfile'
+import { useGoogleAuth } from './useGoogleAuth'
 
 interface LoginErrors {
   email?: string
@@ -22,8 +23,29 @@ export function useLoginForm() {
   const [showPassword, setShowPassword] = useState(false)
   const [errors, setErrors] = useState<LoginErrors>({})
   const [loading, setLoading] = useState(false)
+  const { googleLoading, googleButtonRef } = useGoogleAuth((message) => setErrors({ general: message }))
 
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname ?? '/dashboard'
+
+  const finish_login = async (tokens: LoginResponse) => {
+    localStorage.setItem('accessToken', tokens.accessToken)
+    const { data: profile } = await api_me()
+    login(
+      {
+        id: profile.user_id,
+        name: profile.name,
+        email: profile.email,
+        nickname: profile.nickname,
+        phone: profile.phone,
+        role: profile.role,
+        profileImageUrl: profile.profile_image_url,
+        level: '초급 Lv.1',
+      },
+      tokens.accessToken,
+    )
+    const diagnosed = await api_get_investment_profile().then(() => true).catch(() => false)
+    navigate(diagnosed ? from : '/onboarding/investment-profile', { replace: true })
+  }
 
   const handle_submit = async (e: FormEvent) => {
     e.preventDefault()
@@ -37,22 +59,7 @@ export function useLoginForm() {
     setLoading(true)
     try {
       const { data: tokens } = await api_login({ email, password })
-      localStorage.setItem('accessToken', tokens.accessToken)
-      const { data: profile } = await api_me()
-      login(
-        {
-          id: profile.user_id,
-          name: profile.name,
-          email: profile.email,
-          nickname: profile.nickname,
-          phone: profile.phone,
-          role: profile.role,
-          level: '초급 Lv.1',
-        },
-        tokens.accessToken,
-      )
-      const diagnosed = await api_get_investment_profile().then(() => true).catch(() => false)
-      navigate(diagnosed ? from : '/onboarding/investment-profile', { replace: true })
+      await finish_login(tokens)
     } catch (err: any) {
       const msg = err?.response?.data?.message ?? '이메일 또는 비밀번호가 올바르지 않습니다.'
       setErrors({ general: msg })
@@ -67,6 +74,8 @@ export function useLoginForm() {
     showPassword, setShowPassword,
     errors,
     loading,
+    googleLoading,
+    googleButtonRef,
     handle_submit,
   }
 }

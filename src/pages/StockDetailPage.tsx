@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import AppLayout from '../components/layout/AppLayout'
 import Card from '../components/common/Card'
@@ -115,6 +115,14 @@ export default function StockDetailPage() {
     tradeMessage,
   } = useStockDetailData(ticker)
   const watchlist = useWatchlist()
+  useEffect(() => {
+    if (!modal.open) return
+    const handle_key_down = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setModal((m) => ({ ...m, open: false }))
+    }
+    window.addEventListener('keydown', handle_key_down)
+    return () => window.removeEventListener('keydown', handle_key_down)
+  }, [modal.open, setModal])
 
   if (loading) {
     return (

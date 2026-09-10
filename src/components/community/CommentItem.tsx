@@ -57,7 +57,7 @@ export default function CommentItem({ comment, canManage, isProcessing, onSave, 
           </div>
         </div>
       ) : (
-        <div style={{ fontSize: 14, whiteSpace: 'pre-wrap' }}>{comment.content}</div>
+        <div className="community-text" style={{ fontSize: 14, whiteSpace: 'pre-wrap' }}>{comment.content}</div>
       )}
 
       <ConfirmModal

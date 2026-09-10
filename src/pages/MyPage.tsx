@@ -6,6 +6,7 @@ import Pill from '../components/common/Pill'
 import Progress from '../components/common/Progress'
 import Input from '../components/common/Input'
 import ConfirmModal from '../components/common/ConfirmModal'
+import ProfileAvatar from '../components/common/ProfileAvatar'
 import { useMyPage } from '../hooks/useMyPage'
 
 const MENU = [
@@ -22,6 +23,7 @@ export default function MyPage() {
     user, stats, streakDays, riskTypeLabel,
     handle_logout,
     withdrawOpen, withdrawPassword, setWithdrawPassword, withdrawError, withdrawLoading,
+    googleWithdrawButtonRef,
     handle_open_withdraw, handle_close_withdraw, handle_withdraw,
   } = useMyPage()
 
@@ -38,7 +40,7 @@ export default function MyPage() {
         <Card>
           <div className="row">
             <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-              <div className="avatar" style={{ width: 80, height: 80 }} />
+              <ProfileAvatar src={user?.profileImageUrl} name={user?.nickname || user?.name} style={{ width: 80, height: 80 }} />
               <div>
                 <div style={{ fontSize: 22, fontWeight: 800 }}>{user?.name ?? '사용자'}</div>
                 <div className="muted" style={{ marginTop: 4 }}>{user?.email ?? '-'}</div>
@@ -128,7 +130,7 @@ export default function MyPage() {
       <ConfirmModal
         open={withdrawOpen}
         title="정말 탈퇴하시겠어요?"
-        message="탈퇴 시 계정 정보와 학습 기록에 다시 접근할 수 없습니다. 계속하려면 비밀번호를 입력해주세요."
+        message="탈퇴 시 계정 정보와 학습 기록에 다시 접근할 수 없습니다. 비밀번호 계정은 비밀번호로, Google 계정은 Google 인증으로 진행해주세요."
         confirmText={withdrawLoading ? '처리 중...' : '탈퇴하기'}
         cancelText="취소"
         confirmDisabled={withdrawLoading}
@@ -143,6 +145,8 @@ export default function MyPage() {
           error={withdrawError}
           autoFocus
         />
+        <div className="divider">또는</div>
+        <div ref={googleWithdrawButtonRef} style={{ minHeight: 44, opacity: withdrawLoading ? 0.6 : 1 }} />
       </ConfirmModal>
     </AppLayout>
   )

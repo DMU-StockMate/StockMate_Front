@@ -28,7 +28,7 @@ export default function PostListTable({ posts, loading, currentUserId, actionPos
 
   return (
     <>
-      <table className="tbl" style={{ width: '100%' }}>
+      <table className="tbl community-post-table" style={{ width: '100%' }}>
         <thead>
           <tr style={{ background: 'var(--primary-subtle)' }}>
             <th style={{ paddingLeft: 24 }}>제목</th>
@@ -43,11 +43,11 @@ export default function PostListTable({ posts, loading, currentUserId, actionPos
           {posts.map((post) => (
             <tr key={post.postId} onClick={() => navigate(`/community/${post.postId}`)} style={{ cursor: 'pointer' }}>
               <td style={{ paddingLeft: 24 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div className="community-post-title-row">
                   {post.boardType === 'STOCK' && post.stock && (
                     <Pill variant="accent">{post.stock.companyName}</Pill>
                   )}
-                  <span className="strong">{post.title}</span>
+                  <span className="strong community-text">{post.title}</span>
                 </div>
               </td>
               <td className="muted" style={{ fontSize: 13 }}>{post.author?.nickname ?? '탈퇴한 사용자'}</td>

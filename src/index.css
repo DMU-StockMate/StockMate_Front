@@ -223,6 +223,13 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: 50%;
   background: var(--gradient);
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .sidebar-footer .user-name {
@@ -453,6 +460,13 @@ h1, h2, h3, h4, h5, h6 {
   height: 32px;
   border-radius: 50%;
   background: var(--gradient);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
 }
 
 .top-profile .profile-name {
@@ -907,6 +921,46 @@ h1, h2, h3, h4, h5, h6 {
   border-bottom: none;
 }
 
+.community-post-table {
+  table-layout: fixed;
+}
+
+.community-post-table th:nth-child(2),
+.community-post-table td:nth-child(2) {
+  width: 110px;
+}
+
+.community-post-table th:nth-child(3),
+.community-post-table td:nth-child(3),
+.community-post-table th:nth-child(4),
+.community-post-table td:nth-child(4),
+.community-post-table th:nth-child(6),
+.community-post-table td:nth-child(6) {
+  width: 72px;
+}
+
+.community-post-table th:nth-child(5),
+.community-post-table td:nth-child(5) {
+  width: 118px;
+}
+
+.community-post-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.community-post-title-row .pill {
+  flex-shrink: 0;
+}
+
+.community-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 /* ============ UTILITY ============ */
 .label {
   font-size: 11px;
@@ -987,6 +1041,83 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: 50%;
   background: var(--gradient);
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.avatar img,
+.sidebar-footer .avatar-sm img,
+.top-profile .avatar-xs img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-image-field {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+}
+
+.profile-image-preview {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: var(--gradient);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 800;
+  box-shadow: 0 0 0 4px #fff;
+}
+
+.profile-image-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-image-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-image-picker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 36px;
+  margin-top: 10px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: 1px solid var(--primary);
+  background: #fff;
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.profile-image-picker:hover {
+  background: var(--primary-light);
+}
+
+.profile-image-input {
+  display: none;
 }
 
 .menu-list {
@@ -1149,6 +1280,34 @@ h1, h2, h3, h4, h5, h6 {
 .gen-mode-card.active .gen-mode-icon { background: var(--primary); color: #fff; }
 .gen-mode-title { font-size: 14px; font-weight: 700; color: var(--t1); }
 .gen-mode-desc { font-size: 12px; color: var(--t2); line-height: 1.5; }
+
+.onboarding-result-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+}
+
+.onboarding-guide-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+  color: var(--t1);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.onboarding-guide-list i {
+  color: var(--success);
+  margin-right: 6px;
+}
+
+@media (max-width: 640px) {
+  .onboarding-result-grid,
+  .action-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
 
 /* ============ QUIZ MINI CARDS ============ */
 .quiz-mini {
@@ -2423,15 +2582,50 @@ h1, h2, h3, h4, h5, h6 {
   padding: 28px; box-shadow: 0 24px 60px rgba(26,21,48,0.25);
 }
 .stepper {
-  display: flex; align-items: center; justify-content: space-between;
-  background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 6px 12px;
+  display: grid;
+  grid-template-columns: 42px 1fr 42px;
+  align-items: center;
+  gap: 8px;
+  background: #F7F5FB;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px;
 }
 .stepper button {
-  width: 36px; height: 36px; border-radius: 8px; background: #fff;
-  border: 1px solid var(--border); font-weight: 700; font-size: 18px;
-  color: var(--t1); cursor: pointer;
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid transparent;
+  font-weight: 800;
+  font-size: 18px;
+  color: var(--t1);
+  cursor: pointer;
 }
-.stepper .qty { font-size: 22px; font-weight: 800; }
+.stepper .qty {
+  width: 100%;
+  height: 42px;
+  border: 1px solid #E4DDEE;
+  border-radius: 10px;
+  background: #fff;
+  color: var(--t1);
+  font-size: 20px;
+  font-weight: 800;
+  text-align: center;
+  outline: none;
+  cursor: text;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.stepper input.qty:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(109,41,217,0.10);
+}
+
+.stepper button:hover {
+  border-color: #E4DDEE;
+  color: var(--primary);
+}
 
 /* ============ MISC ============ */
 .dot-indicator { width: 6px; height: 6px; border-radius: 50%; background: var(--success); display: inline-block; }

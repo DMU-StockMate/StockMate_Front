@@ -9,6 +9,7 @@ export interface AuthUser {
   nickname?: string
   phone?: string
   role?: string
+  profileImageUrl?: string | null
   level: string
 }
 
@@ -47,6 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             nickname: data.nickname,
             phone: data.phone,
             role: data.role,
+            profileImageUrl: data.profile_image_url,
             level: '초급 Lv.1',
           },
         })

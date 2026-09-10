@@ -45,6 +45,14 @@ export default function TradeStocksPage() {
   const watchlist = useWatchlist()
   const [qtyText, setQtyText] = useState(String(tradeStocks.tradeQty))
   useEffect(() => { setQtyText(String(tradeStocks.tradeQty)) }, [tradeStocks.tradeQty])
+  useEffect(() => {
+    if (!tradeStocks.tradeModal.open) return
+    const handle_key_down = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') tradeStocks.closeTradeModal()
+    }
+    window.addEventListener('keydown', handle_key_down)
+    return () => window.removeEventListener('keydown', handle_key_down)
+  }, [tradeStocks.tradeModal.open, tradeStocks.closeTradeModal])
   const isFilterActive = (filter: CombinedFilter) =>
     filter.type === 'view'
       ? tradeStocks.viewFilter === filter.key && tradeStocks.market === '전체'
@@ -88,10 +96,6 @@ export default function TradeStocksPage() {
           <Button variant="outline" onClick={() => navigate('/trade')}>
             <i className="bi bi-chevron-left" />
             모의투자로
-          </Button>
-          <Button onClick={() => tradeStocks.openTradeModal('buy')}>
-            <i className="bi bi-plus" />
-            매수 주문
           </Button>
         </div>
       </div>
@@ -367,7 +371,6 @@ export default function TradeStocksPage() {
                     if (raw !== '' && Number.isFinite(n) && n > 0) tradeStocks.setTradeQty(n)
                   }}
                   onBlur={() => { if (!qtyText || Number(qtyText) < 1) tradeStocks.setTradeQty(1) }}
-                  style={{ width: 80, textAlign: 'center', border: 'none', outline: 'none', background: 'transparent' }}
                 />
                 <button disabled={tradeStocks.tradeLoading} onClick={() => tradeStocks.setTradeQty((qty) => qty + 1)}>+</button>
               </div>

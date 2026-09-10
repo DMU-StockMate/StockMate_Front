@@ -1,12 +1,11 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { RISK_PROFILE_QUESTIONS } from '../constants/riskProfile'
-import { api_submit_investment_profile } from '../api/investmentProfile'
+import { api_submit_investment_profile, type InvestmentProfileResult } from '../api/investmentProfile'
 import { get_community_error_message } from '../utils/community'
 
 export function useInvestmentProfile() {
-  const navigate = useNavigate()
   const [answers, setAnswers] = useState<Record<string, string>>({})
+  const [result, setResult] = useState<InvestmentProfileResult | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
@@ -25,10 +24,10 @@ export function useInvestmentProfile() {
     setError('')
     setSubmitting(true)
     try {
-      await api_submit_investment_profile(
+      const { data } = await api_submit_investment_profile(
         RISK_PROFILE_QUESTIONS.map((q) => ({ questionCode: q.code, optionCode: answers[q.code] })),
       )
-      navigate('/learn')
+      setResult(data)
     } catch (err) {
       setError(get_community_error_message(err, '진단 결과 제출에 실패했습니다. 다시 시도해주세요.'))
     } finally {
@@ -36,14 +35,21 @@ export function useInvestmentProfile() {
     }
   }
 
+  const handle_reset = () => {
+    setResult(null)
+    setError('')
+  }
+
   return {
     questions: RISK_PROFILE_QUESTIONS,
     answers,
+    result,
     answeredCount,
     isComplete,
     submitting,
     error,
     handle_select,
     handle_submit,
+    handle_reset,
   }
 }

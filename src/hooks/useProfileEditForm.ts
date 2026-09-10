@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ChangeEvent, FormEvent } from 'react'
-import { api_me, api_reset_password, api_update_user } from '../api/auth'
+import { api_me, api_reset_password, api_update_user, api_upload_profile_image } from '../api/auth'
 import { api_send_email_code, api_verify_email_code } from '../api/email'
 import { useAuth } from './useAuth'
 import { getPasswordStrength, validateNewPassword } from '../utils/validation'
@@ -21,6 +21,7 @@ export interface ProfileEditErrors {
   name?: string
   nickname?: string
   phone?: string
+  profileImage?: string
   code?: string
   newPassword?: string
   confirmPassword?: string
@@ -52,6 +53,9 @@ export function useProfileEditForm() {
     confirmPassword: '',
   })
   const [email, setEmail] = useState(user?.email ?? '')
+  const [profileImageUrl, setProfileImageUrl] = useState(user?.profileImageUrl ?? '')
+  const [profileImageFile, setProfileImageFile] = useState<File | null>(null)
+  const [profileImagePreviewUrl, setProfileImagePreviewUrl] = useState('')
   const [errors, setErrors] = useState<ProfileEditErrors>({})
   const [profileSaved, setProfileSaved] = useState(false)
   const [passwordSaved, setPasswordSaved] = useState(false)
@@ -69,6 +73,7 @@ export function useProfileEditForm() {
     api_me()
       .then(({ data }) => {
         setEmail(data.email)
+        setProfileImageUrl(data.profile_image_url ?? '')
         setProfileForm({
           name: data.name ?? '',
           nickname: data.nickname ?? '',
@@ -81,10 +86,21 @@ export function useProfileEditForm() {
           nickname: data.nickname,
           phone: data.phone,
           role: data.role,
+          profileImageUrl: data.profile_image_url,
         })
       })
       .catch(() => {})
   }, [updateUser])
+
+  useEffect(() => {
+    if (!profileImageFile) {
+      setProfileImagePreviewUrl('')
+      return
+    }
+    const url = URL.createObjectURL(profileImageFile)
+    setProfileImagePreviewUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [profileImageFile])
 
   useEffect(() => {
     if (!codeSent || timer <= 0) return
@@ -95,6 +111,23 @@ export function useProfileEditForm() {
   const handleProfileField = useCallback((key: keyof ProfileFormValues) => (e: ChangeEvent<HTMLInputElement>) => {
     setProfileSaved(false)
     setProfileForm((prev) => ({ ...prev, [key]: e.target.value }))
+  }, [])
+
+  const handleProfileImageChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null
+    setProfileSaved(false)
+    setProfileImageFile(null)
+    setErrors((prev) => ({ ...prev, profileImage: undefined, profileGeneral: undefined }))
+    if (!file) return
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setErrors((prev) => ({ ...prev, profileImage: 'jpg, png, webp 이미지만 업로드할 수 있습니다.' }))
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setErrors((prev) => ({ ...prev, profileImage: '파일 크기는 최대 5MB까지 가능합니다.' }))
+      return
+    }
+    setProfileImageFile(file)
   }, [])
 
   const handlePasswordField = useCallback((key: keyof PasswordFormValues) => (e: ChangeEvent<HTMLInputElement>) => {
@@ -134,6 +167,13 @@ export function useProfileEditForm() {
         nickname: profileForm.nickname.trim(),
         phone: profileForm.phone.trim(),
       })
+      let nextProfileImageUrl = data.profile_image_url
+      if (profileImageFile) {
+        const { data: image } = await api_upload_profile_image(profileImageFile)
+        nextProfileImageUrl = image.profileImageUrl
+        setProfileImageFile(null)
+      }
+      setProfileImageUrl(nextProfileImageUrl ?? '')
       updateUser({
         id: data.user_id,
         email: data.email,
@@ -141,6 +181,7 @@ export function useProfileEditForm() {
         nickname: data.nickname,
         phone: data.phone,
         role: data.role,
+        profileImageUrl: nextProfileImageUrl,
       })
       setProfileSaved(true)
     } catch (err: any) {
@@ -151,7 +192,7 @@ export function useProfileEditForm() {
     } finally {
       setProfileLoading(false)
     }
-  }, [profileForm, updateUser, validateProfile])
+  }, [profileForm, profileImageFile, updateUser, validateProfile])
 
   const handleSendCode = useCallback(async () => {
     if (!email) return
@@ -236,6 +277,8 @@ export function useProfileEditForm() {
   return {
     email,
     profileForm,
+    profileImageUrl,
+    profileImagePreviewUrl,
     passwordForm,
     errors,
     profileSaved,
@@ -251,6 +294,7 @@ export function useProfileEditForm() {
     setShowPassword,
     passwordStrength: getPasswordStrength(passwordForm.newPassword),
     handleProfileField,
+    handleProfileImageChange,
     handlePasswordField,
     handleProfileSubmit,
     handleSendCode,

@@ -12,6 +12,8 @@ export default function SignupPage() {
     errors,
     interests,
     loading,
+    googleLoading,
+    googleButtonRef,
     passwordStrength,
     emailCodeSent,
     emailVerified,
@@ -255,10 +257,7 @@ export default function SignupPage() {
 
           <div className="divider">또는</div>
 
-          <Button type="button" variant="outline" block>
-            <i className="bi bi-google" />
-            Google로 시작하기
-          </Button>
+          <div ref={googleButtonRef} style={{ minHeight: 44, opacity: googleLoading ? 0.6 : 1 }} />
         </form>
 
         <p style={{ marginTop: 24, textAlign: 'center', fontSize: 13, color: 'var(--t2)' }}>
