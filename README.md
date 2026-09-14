@@ -57,7 +57,7 @@ cp .env .env.local
 백엔드 API 주소를 환경에 맞게 설정합니다.
 
 ```env
-VITE_API_URL=http://localhost:3000
+VITE_API_BASE_URL=http://localhost:3000
 ```
 
 ## 개발 실행
@@ -86,7 +86,7 @@ SPA 라우팅을 사용하므로 배포 환경에서 모든 경로를 `index.htm
 
 ## 배포 전 체크리스트
 
-- `VITE_API_URL`이 운영 백엔드 주소를 바라보는지 확인
+- `VITE_API_BASE_URL`이 운영 백엔드 주소를 바라보는지 확인
 - 백엔드 CORS 허용 도메인에 프론트엔드 배포 도메인 추가
 - 로그인 후 보호 라우트(`/dashboard`, `/learn`, `/trade`, `/mypage`) 접근 확인
 - 관리자 계정으로 `/admin/dashboard` 접근 확인

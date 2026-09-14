@@ -3,9 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { api_get_investment_profile } from '../api/investmentProfile'
 import { api_google_login, api_me } from '../api/auth'
 import { useAuth } from './useAuth'
-
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
-  || '407983056207-28p6ji7lqnmfri8uvu2sscuehstmgrja.apps.googleusercontent.com'
+import { render_google_button } from '../utils/googleAuth'
 
 export function useGoogleAuth(onError: (message: string) => void) {
   const navigate = useNavigate()
@@ -21,7 +19,7 @@ export function useGoogleAuth(onError: (message: string) => void) {
   }, [onError])
 
   useEffect(() => {
-    if (!GOOGLE_CLIENT_ID || !googleButtonRef.current) return
+    if (!googleButtonRef.current) return
 
     const finish_login = async (accessToken: string) => {
       localStorage.setItem('accessToken', accessToken)
@@ -40,45 +38,19 @@ export function useGoogleAuth(onError: (message: string) => void) {
       navigate(diagnosed ? from : '/onboarding/investment-profile', { replace: true })
     }
 
-    const render = () => {
-      const google = (window as any).google
-      if (!google?.accounts?.id || !googleButtonRef.current) return
-      google.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: async (response: { credential?: string }) => {
-          if (!response.credential) return
-          setGoogleLoading(true)
-          try {
-            const { data } = await api_google_login({ idToken: response.credential })
-            await finish_login(data.accessToken)
-          } catch (err: any) {
-            const msg = err?.response?.data?.message ?? '구글 로그인에 실패했습니다.'
-            onErrorRef.current(Array.isArray(msg) ? msg[0] : msg)
-          } finally {
-            setGoogleLoading(false)
-          }
-        },
-      })
-      google.accounts.id.renderButton(googleButtonRef.current, {
-        theme: 'outline',
-        size: 'large',
-        width: googleButtonRef.current.offsetWidth,
-        text: 'continue_with',
-      })
-    }
-
-    if ((window as any).google?.accounts?.id) {
-      render()
-      return
-    }
-
-    const script = document.createElement('script')
-    script.src = 'https://accounts.google.com/gsi/client'
-    script.async = true
-    script.defer = true
-    script.onload = render
-    script.onerror = () => onErrorRef.current('구글 로그인 스크립트를 불러오지 못했습니다.')
-    document.head.appendChild(script)
+    render_google_button(googleButtonRef.current, async (response) => {
+      if (!response.credential) return
+      setGoogleLoading(true)
+      try {
+        const { data } = await api_google_login({ idToken: response.credential })
+        await finish_login(data.accessToken)
+      } catch (err: any) {
+        const msg = err?.response?.data?.message ?? '구글 로그인에 실패했습니다.'
+        onErrorRef.current(Array.isArray(msg) ? msg[0] : msg)
+      } finally {
+        setGoogleLoading(false)
+      }
+    }).catch(() => onErrorRef.current('구글 로그인 스크립트를 불러오지 못했습니다.'))
   }, [from, login, navigate])
 
   return { googleButtonRef, googleLoading }

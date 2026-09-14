@@ -1,7 +1,8 @@
 import axios from 'axios'
+import { API_BASE_URL } from './axios'
 
 const dart_api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000',
+  baseURL: API_BASE_URL,
   timeout: 120_000, // DART API는 corpCode.xml 3MB 다운로드가 포함되어 최대 2분
 })
 

@@ -6,9 +6,7 @@ import { api_get_statistics, api_get_histories, type LearningStatistics } from '
 import { api_get_investment_profile, type InvestmentProfileResult } from '../api/investmentProfile'
 import { RISK_TYPE_LABELS } from '../constants/riskProfile'
 import { calc_streak_days } from '../utils/streak'
-
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
-  || '407983056207-28p6ji7lqnmfri8uvu2sscuehstmgrja.apps.googleusercontent.com'
+import { render_google_button } from '../utils/googleAuth'
 
 export function useMyPage() {
   const { user, logout } = useAuth()
@@ -49,35 +47,9 @@ export function useMyPage() {
       }
     }
 
-    const render = () => {
-      const google = (window as any).google
-      if (!google?.accounts?.id || !googleWithdrawButtonRef.current) return
-      google.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: (response: { credential?: string }) => {
-          if (response.credential) void withdraw_with_google(response.credential)
-        },
-      })
-      google.accounts.id.renderButton(googleWithdrawButtonRef.current, {
-        theme: 'outline',
-        size: 'large',
-        width: googleWithdrawButtonRef.current.offsetWidth,
-        text: 'continue_with',
-      })
-    }
-
-    if ((window as any).google?.accounts?.id) {
-      render()
-      return
-    }
-
-    const script = document.createElement('script')
-    script.src = 'https://accounts.google.com/gsi/client'
-    script.async = true
-    script.defer = true
-    script.onload = render
-    script.onerror = () => setWithdrawError('구글 인증 스크립트를 불러오지 못했습니다.')
-    document.head.appendChild(script)
+    render_google_button(googleWithdrawButtonRef.current, (response) => {
+      if (response.credential) void withdraw_with_google(response.credential)
+    }).catch(() => setWithdrawError('구글 인증 스크립트를 불러오지 못했습니다.'))
   }, [withdrawOpen, logout, navigate])
 
   const handle_logout = async () => {

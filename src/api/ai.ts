@@ -1,4 +1,4 @@
-import { api } from './axios'
+import { api, API_BASE_URL } from './axios'
 
 export type AiQuestionType = 'MULTIPLE_CHOICE' | 'OX'
 export type AiGenerationSource = 'WRONG_NOTE' | 'PROMPT'
@@ -82,8 +82,6 @@ export type AiStreamEvent =
   | { type: 'token'; content: string }
   | { type: 'done'; sessionId: number }
   | { type: 'error'; message: string }
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000'
 
 // LLM 문제 생성은 30초를 넘기는 경우가 흔해 넉넉히 잡음
 export const api_generate_from_wrong_notes = (data: GenerateFromWrongNotesRequest) =>
