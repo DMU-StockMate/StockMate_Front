@@ -4,6 +4,7 @@ import Button from '../components/common/Button'
 import Progress from '../components/common/Progress'
 import Chip, { ChipRow } from '../components/common/Chip'
 import MarkdownMessage from '../components/common/MarkdownMessage'
+import LearningHelp, { HELP_DESCRIPTIONS, HELP_STEPS } from '../components/learn/LearningHelp'
 import { useQuiz } from '../hooks/useQuiz'
 import type { QuizType } from '../hooks/useQuiz'
 import { useNavigate } from 'react-router-dom'
@@ -14,22 +15,20 @@ export default function QuizPage() {
   const navigate = useNavigate()
   const {
     quiz, questions, selected, setSelected,
-    submitted, submitResult,
+    submitted, submittedNow, submitResult,
     bookmarked, bookmarkSaving,
     aiOpen, setAiOpen,
     aiInput, setAiInput,
     aiMessages, aiSending,
     loading, error,
-    submitting,
+    submitting, retrying,
     topicId,
     currentIndex, progressPct, hasPrev, hasNext,
     handle_next, handle_prev,
     handle_bookmark_toggle, handle_submit,
+    handle_retry,
     send_ai_message, handle_ai_key_down,
   } = useQuiz()
-
-  const resultCorrectIndex = quiz?.correctIndex ?? -1
-  const isCorrect = submitResult?.correct ?? false
 
   if (!quiz) {
     return (
@@ -53,6 +52,20 @@ export default function QuizPage() {
       </AppLayout>
     )
   }
+
+  const resultCorrectIndex = quiz.correctIndex
+  const isCorrect = submitResult?.correct ?? false
+  const isPreviousResult = submitted && !submittedNow && !retrying && quiz.attemptStatus !== 'UNANSWERED'
+  const statusTitle = isCorrect
+    ? (isPreviousResult ? '정답 완료' : '정답입니다!')
+    : (isPreviousResult ? '이전에 틀린 문제입니다.' : '오답입니다.')
+  const statusText = isCorrect
+    ? (isPreviousResult
+      ? `이미 맞힌 문제입니다.${quiz.isRewarded ? ' 보상 지급 완료.' : ''}`
+      : (submitResult?.reward ?? 0) > 0
+        ? `+${(submitResult?.reward ?? quiz.reward).toLocaleString()}원 획득`
+        : '정답 처리되었습니다. 이미 보상을 받은 문제라 추가 지급은 없습니다.')
+    : (isPreviousResult ? '다시 풀기를 누르면 답안을 다시 선택할 수 있습니다.' : 'AI 설명으로 헷갈린 개념을 바로 확인해보세요.')
 
   return (
     <AppLayout topbarPlaceholder="학습 검색">
@@ -83,9 +96,18 @@ export default function QuizPage() {
             >
               <i className="bi bi-x-lg" />
             </button>
-            <div className="quiz-progress-wrap">
+            <div className="quiz-progress-wrap" data-tour="quiz-progress">
               <div className="row" style={{ marginBottom: 8, fontSize: 13, color: 'var(--t2)' }}>
-                <span>문제 풀이 · Q{currentIndex >= 0 ? currentIndex + 1 : quiz.id} / {questions.length}</span>
+                <span className="title-with-help">
+                  문제 풀이 · Q{currentIndex >= 0 ? currentIndex + 1 : quiz.id} / {questions.length}
+                  <LearningHelp
+                    title="퀴즈"
+                    description={HELP_DESCRIPTIONS.QUIZ}
+                    tutorialType="QUIZ"
+                    steps={HELP_STEPS.QUIZ}
+                    onStartFullTutorial={() => navigate('/learn', { state: { startTutorial: true } })}
+                  />
+                </span>
                 <span>{progressPct}%</span>
               </div>
               <Progress value={progressPct} />
@@ -106,11 +128,16 @@ export default function QuizPage() {
                 <i className={`bi ${isCorrect ? 'bi-check-lg' : 'bi-x-lg'}`} />
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 20, fontWeight: 800 }}>{isCorrect ? '정답입니다!' : '오답입니다.'}</div>
+                <div style={{ fontSize: 20, fontWeight: 800 }}>{statusTitle}</div>
                 <div style={{ marginTop: 4 }}>
-                  {isCorrect ? `+${(submitResult?.reward ?? quiz.reward).toLocaleString()}원 획득` : 'AI 설명으로 헷갈린 개념을 바로 확인해보세요.'}
+                  {statusText}
                 </div>
               </div>
+              {quiz.canRetry && (
+                <Button variant="outline" onClick={handle_retry}>
+                  다시 풀기
+                </Button>
+              )}
               <Button variant="outline" onClick={() => setAiOpen(true)}>
                 <i className="bi bi-stars" />
                 AI 설명
@@ -118,7 +145,7 @@ export default function QuizPage() {
             </div>
           )}
 
-          <Card className="card-lg quiz-question-card">
+          <Card className="card-lg quiz-question-card" data-tour="quiz-card">
             <ChipRow style={{ marginBottom: 20 }}>
               <Chip active>{quiz.tag}</Chip>
               <Chip>{format_type(quiz.type)}</Chip>
@@ -175,7 +202,7 @@ export default function QuizPage() {
                     <i className="bi bi-stars" />
                     AI 설명
                   </Button>
-                  <Button size="lg" style={{ minWidth: 200 }} onClick={() => void handle_submit()} disabled={selected === null || submitting}>
+                  <Button size="lg" style={{ minWidth: 200 }} onClick={() => void handle_submit()} disabled={selected === null || submitting || !quiz.canSubmit}>
                     {submitting ? '제출 중...' : '제출하기'}
                   </Button>
                 </div>

@@ -10,6 +10,7 @@ import LearnConceptsPage from './pages/LearnConceptsPage'
 import LearnConceptDetailPage from './pages/LearnConceptDetailPage'
 import OnboardingInvestmentProfilePage from './pages/OnboardingInvestmentProfilePage'
 import LearnAiHistoryPage from './pages/LearnAiHistoryPage'
+import LearnHistoryPage from './pages/LearnHistoryPage'
 import LearnLevelPage from './pages/LearnLevelPage'
 import LearnCustomPage from './pages/LearnCustomPage'
 import LearnTopicPage from './pages/LearnTopicPage'
@@ -56,6 +57,7 @@ export default function App() {
           <Route path="/learn/concepts" element={<LearnConceptsPage />} />
           <Route path="/learn/concepts/:slug" element={<LearnConceptDetailPage />} />
           <Route path="/learn/ai-history" element={<LearnAiHistoryPage />} />
+          <Route path="/learn/history" element={<LearnHistoryPage />} />
           <Route path="/learn/bookmarks" element={<BookmarkListPage />} />
           <Route path="/learn/quiz/:topicId/:questionId" element={<QuizPage />} />
           <Route path="/learn/custom" element={<LearnCustomPage />} />

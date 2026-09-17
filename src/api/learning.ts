@@ -34,7 +34,16 @@ export interface QuizQuestion {
   explanation?: string | null
   reward_cash?: number
   rewardCash?: number
+  rewardCashEarned?: number
+  isRewarded?: boolean
+  attemptStatus?: 'UNANSWERED' | 'INCORRECT' | 'CORRECT'
+  canSubmit?: boolean
+  canRetry?: boolean
   status?: string
+  alreadySolved?: boolean
+  lastCorrect?: boolean | null
+  selectedChoiceId?: number | null
+  lastSolvedAt?: string | null
   choices: QuizChoice[]
 }
 
@@ -74,6 +83,10 @@ export interface SubmitAnswerResponse {
   selectedChoiceId: number
   correct: boolean
   reward: number
+  alreadyRewarded?: boolean
+  attemptStatus?: 'UNANSWERED' | 'INCORRECT' | 'CORRECT'
+  canSubmit?: boolean
+  canRetry?: boolean
   explanation: string | null
 }
 
@@ -82,6 +95,21 @@ export interface LearningStatistics {
   correct: number
   wrong: number
   accuracy: number
+}
+
+export type TutorialType =
+  | 'INVESTMENT_LEARNING'
+  | 'PERSONALIZED_LEARNING'
+  | 'CONCEPT_SUMMARY'
+  | 'QUIZ'
+  | 'LEARNING_PROGRESS'
+
+export interface UserTutorial {
+  id?: number
+  userId?: number
+  tutorialType: TutorialType
+  completed: boolean
+  completedAt: string | null
 }
 
 export interface GetQuestionsParams {
@@ -120,6 +148,12 @@ export const api_get_histories = () =>
 
 export const api_get_statistics = () =>
   api.get<LearningStatistics>('/learning/statistics')
+
+export const api_get_tutorial = (tutorialType: TutorialType) =>
+  api.get<UserTutorial>(`/learning/tutorials/${tutorialType}`)
+
+export const api_complete_tutorial = (tutorialType: TutorialType) =>
+  api.post<UserTutorial>(`/learning/tutorials/${tutorialType}/complete`)
 
 export const api_get_wrong_notes = () =>
   api.get<QuizAttempt[]>('/learning/wrong-notes')

@@ -26,6 +26,12 @@ export interface QuizItem {
   difficulty: '쉬움' | '보통' | '어려움'
   reward: number
   explanation: string | null
+  attemptStatus: 'UNANSWERED' | 'INCORRECT' | 'CORRECT'
+  selectedChoiceId: number | null
+  rewardCashEarned: number
+  isRewarded: boolean
+  canSubmit: boolean
+  canRetry: boolean
 }
 
 export interface AiMessage {
@@ -64,6 +70,12 @@ const normalize_question = (raw: unknown): QuizItem | null => {
     difficulty: levelId > 2 ? '어려움' : levelId > 1 ? '보통' : '쉬움',
     reward: Number(question.reward_cash ?? question.rewardCash ?? 0),
     explanation: typeof question.explanation === 'string' ? question.explanation : null,
+    attemptStatus: String(question.attemptStatus ?? 'UNANSWERED') as QuizItem['attemptStatus'],
+    selectedChoiceId: question.selectedChoiceId == null ? null : Number(question.selectedChoiceId),
+    rewardCashEarned: Number(question.rewardCashEarned ?? 0),
+    isRewarded: question.isRewarded === true,
+    canSubmit: question.canSubmit !== false,
+    canRetry: question.canRetry === true,
   }
 }
 
@@ -81,6 +93,7 @@ export function useQuiz() {
   const [questions, setQuestions] = useState<QuizItem[]>([])
   const [selected, setSelected] = useState<number | null>(null)
   const [submitted, setSubmitted] = useState(false)
+  const [submittedNow, setSubmittedNow] = useState(false)
   const [submitResult, setSubmitResult] = useState<{ correct: boolean; reward: number; explanation: string | null } | null>(null)
   const [bookmarked, setBookmarked] = useState(false)
   const [bookmarkSaving, setBookmarkSaving] = useState(false)
@@ -92,13 +105,23 @@ export function useQuiz() {
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [aiSending, setAiSending] = useState(false)
+  const [retrying, setRetrying] = useState(false)
   const nextAiMessageIdRef = useRef(1)
 
   const sync_question = useCallback((nextQuiz: QuizItem) => {
+    const selectedIndex = nextQuiz.selectedChoiceId
+      ? nextQuiz.choiceIds.findIndex((id) => id === nextQuiz.selectedChoiceId)
+      : -1
     setQuiz(nextQuiz)
-    setSelected(null)
-    setSubmitted(false)
-    setSubmitResult(null)
+    setSelected(selectedIndex >= 0 ? selectedIndex : null)
+    setSubmitted(nextQuiz.attemptStatus !== 'UNANSWERED')
+    setSubmittedNow(false)
+    setSubmitResult(nextQuiz.attemptStatus === 'UNANSWERED' ? null : {
+      correct: nextQuiz.attemptStatus === 'CORRECT',
+      reward: nextQuiz.rewardCashEarned,
+      explanation: nextQuiz.explanation,
+    })
+    setRetrying(false)
     setAiOpen(false)
     setAiInput('')
     setAiSessionId(null)
@@ -121,9 +144,9 @@ export function useQuiz() {
 
         let nextQuiz: QuizItem | null = loaded.find((q) => q.id === requestedQuestionId) ?? null
 
-        if (!nextQuiz && requestedQuestionId > 0) {
+        if (requestedQuestionId > 0) {
           const detail = await api_get_question(requestedQuestionId)
-          nextQuiz = normalize_question(detail.data)
+          nextQuiz = normalize_question(detail.data) ?? nextQuiz
         }
 
         if (!alive) return
@@ -210,7 +233,7 @@ export function useQuiz() {
   }, [quiz, bookmarked, bookmarkSaving])
 
   const handle_submit = useCallback(async () => {
-    if (!quiz || selected === null) return
+    if (!quiz || selected === null || !quiz.canSubmit) return
     const selectedChoiceId = quiz.choiceIds[selected]
     if (!selectedChoiceId) return
     setSubmitting(true)
@@ -218,13 +241,33 @@ export function useQuiz() {
     try {
       const { data } = await api_submit_answer(quiz.id, selectedChoiceId)
       setSubmitResult({ correct: data.correct, reward: data.reward, explanation: data.explanation })
+      setQuiz((prev) => prev ? {
+        ...prev,
+        attemptStatus: data.correct ? 'CORRECT' : 'INCORRECT',
+        selectedChoiceId,
+        rewardCashEarned: prev.rewardCashEarned + data.reward,
+        isRewarded: prev.isRewarded || data.reward > 0,
+        canSubmit: !data.correct,
+        canRetry: !data.correct,
+      } : prev)
       setSubmitted(true)
+      setSubmittedNow(true)
+      setRetrying(false)
     } catch {
       setError('정답 제출에 실패했습니다. 잠시 후 다시 시도해주세요.')
     } finally {
       setSubmitting(false)
     }
   }, [quiz, selected])
+
+  const handle_retry = useCallback(() => {
+    if (!quiz?.canRetry) return
+    setSelected(null)
+    setSubmitted(false)
+    setSubmittedNow(false)
+    setSubmitResult(null)
+    setRetrying(true)
+  }, [quiz])
 
   const send_ai_message = useCallback(async (text: string) => {
     if (!quiz) return
@@ -272,17 +315,17 @@ export function useQuiz() {
 
   return {
     quiz, questions, selected, setSelected,
-    submitted, submitResult,
+    submitted, submittedNow, submitResult,
     bookmarked, bookmarkSaving,
     aiOpen, setAiOpen,
     aiInput, setAiInput,
     aiMessages, aiSending,
     loading, error,
-    submitting,
+    submitting, retrying,
     topicId,
     currentIndex, progressPct, hasPrev, hasNext,
     handle_next, handle_prev,
-    handle_bookmark_toggle, handle_submit,
+    handle_bookmark_toggle, handle_submit, handle_retry,
     send_ai_message, handle_ai_key_down,
   }
 }

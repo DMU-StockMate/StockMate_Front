@@ -7,6 +7,7 @@ import Progress from '../components/common/Progress'
 import Input from '../components/common/Input'
 import ConfirmModal from '../components/common/ConfirmModal'
 import ProfileAvatar from '../components/common/ProfileAvatar'
+import LearningHelp, { HELP_DESCRIPTIONS, HELP_STEPS } from '../components/learn/LearningHelp'
 import { useMyPage } from '../hooks/useMyPage'
 
 const MENU = [
@@ -80,10 +81,19 @@ export default function MyPage() {
       {stats && (
         <Card style={{ marginBottom: 20 }}>
           <div className="row" style={{ marginBottom: 12 }}>
-            <div className="section-title" style={{ marginBottom: 0 }}>학습 통계</div>
+            <div className="section-title title-with-help" style={{ marginBottom: 0 }}>
+              학습 통계
+              <LearningHelp
+                title="학습 진행도"
+                description={HELP_DESCRIPTIONS.LEARNING_PROGRESS}
+                tutorialType="LEARNING_PROGRESS"
+                steps={HELP_STEPS.LEARNING_PROGRESS}
+                onStartFullTutorial={() => navigate('/learn', { state: { startTutorial: true } })}
+              />
+            </div>
             <span className="muted" style={{ fontSize: 12 }}>정답률 {stats.accuracy}%</span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
+          <div data-tour="learn-progress" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
             {[
               { num: stats.total, lbl: '총 문제 수' },
               { num: stats.correct, lbl: '정답', cls: 'price-up' },

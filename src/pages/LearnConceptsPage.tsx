@@ -1,11 +1,14 @@
+import { useNavigate } from 'react-router-dom'
 import AppLayout from '../components/layout/AppLayout'
 import Card from '../components/common/Card'
 import Pill from '../components/common/Pill'
 import Chip, { ChipRow } from '../components/common/Chip'
 import Pagination from '../components/common/Pagination'
+import LearningHelp, { HELP_DESCRIPTIONS, HELP_STEPS } from '../components/learn/LearningHelp'
 import { useConcepts } from '../hooks/useConcepts'
 
 export default function LearnConceptsPage() {
+  const navigate = useNavigate()
   const {
     filtered, paginated, loading, levelFilter, setLevelFilter, levelTabs,
     page, totalPages, setPage, handle_open_concept,
@@ -15,12 +18,21 @@ export default function LearnConceptsPage() {
     <AppLayout topbarPlaceholder="개념 검색">
       <div className="page-title">
         <div>
-          <h1>개념정리</h1>
+          <h1 className="title-with-help">
+            개념정리
+            <LearningHelp
+              title="개념정리"
+              description={HELP_DESCRIPTIONS.CONCEPT_SUMMARY}
+              tutorialType="CONCEPT_SUMMARY"
+              steps={HELP_STEPS.CONCEPT_SUMMARY}
+              onStartFullTutorial={() => navigate('/learn', { state: { startTutorial: true } })}
+            />
+          </h1>
           <div className="page-sub">투자 핵심 개념을 블로그처럼 읽고 이해해요</div>
         </div>
       </div>
 
-      <div style={{ marginBottom: 20 }}>
+      <div data-tour="concept-level-filter" style={{ marginBottom: 20 }}>
         <ChipRow>
           {levelTabs.map((level) => (
             <Chip key={level} active={levelFilter === level} onClick={() => setLevelFilter(level)}>{level}</Chip>
@@ -28,7 +40,7 @@ export default function LearnConceptsPage() {
         </ChipRow>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+      <div data-tour="concept-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
         {loading && (
           <Card style={{ gridColumn: '1 / -1' }}>
             <div className="muted">개념정리 목록을 불러오는 중입니다.</div>

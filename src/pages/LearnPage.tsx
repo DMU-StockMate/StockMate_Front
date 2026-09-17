@@ -1,10 +1,13 @@
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import AppLayout from '../components/layout/AppLayout'
 import Card from '../components/common/Card'
 import Button from '../components/common/Button'
 import Pill from '../components/common/Pill'
 import Progress from '../components/common/Progress'
+import LearningHelp, { HELP_DESCRIPTIONS, MAIN_TUTORIAL_STEPS } from '../components/learn/LearningHelp'
+import { api_get_tutorial } from '../api/learning'
 import {
   useLearnPage,
   get_attempt_question_text,
@@ -41,17 +44,47 @@ const LEVELS = [
 export default function LearnPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  const forceTutorial = Boolean((location.state as { startTutorial?: boolean } | null)?.startTutorial)
+  const [autoTutorial, setAutoTutorial] = useState(false)
   const {
     stats, questionCount, levelQuestionCounts, bookmarks, recentHistories,
     loading, accuracy, progressValue, remainingForNextLevel, streakDays,
     handle_navigate_bookmark,
   } = useLearnPage()
 
+  useEffect(() => {
+    let alive = true
+    if (forceTutorial) {
+      setAutoTutorial(true)
+      return () => { alive = false }
+    }
+    api_get_tutorial('INVESTMENT_LEARNING')
+      .then(({ data }) => { if (alive) setAutoTutorial(!data.completed) })
+      .catch(() => { if (alive) setAutoTutorial(false) })
+    return () => { alive = false }
+  }, [forceTutorial])
+
+  const finish_main_tutorial = () => {
+    setAutoTutorial(false)
+    if (forceTutorial) navigate('/learn', { replace: true, state: null })
+  }
+
   return (
     <AppLayout topbarPlaceholder="학습 검색">
       <div className="page-title">
         <div>
-          <h1>투자학습</h1>
+          <h1 className="title-with-help">
+            투자학습
+            <LearningHelp
+              title="투자 학습"
+              description={HELP_DESCRIPTIONS.INVESTMENT_LEARNING}
+              tutorialType="INVESTMENT_LEARNING"
+              steps={MAIN_TUTORIAL_STEPS}
+              autoStart={autoTutorial}
+              onComplete={finish_main_tutorial}
+            />
+          </h1>
           <div className="page-sub">수준에 맞춘 학습 코스를 선택해 자금을 모아보세요</div>
         </div>
         <Button variant="outline" onClick={() => navigate('/onboarding/investment-profile')}>등급 재진단</Button>
@@ -61,6 +94,7 @@ export default function LearnPage() {
         <Card
           variant="hero"
           className="card-lg"
+          data-tour="learn-progress"
           style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}
         >
           <div className="row" style={{ alignItems: 'flex-start' }}>
@@ -89,7 +123,7 @@ export default function LearnPage() {
           </div>
         </Card>
 
-        <Card>
+        <Card data-tour="learn-quiz-entry">
           <div className="row" style={{ marginBottom: 12 }}>
             <Pill variant="accent">학습 현황</Pill>
             <span className="muted" style={{ fontSize: 12 }}>{stats?.total ?? 0} / {questionCount}</span>
@@ -104,7 +138,13 @@ export default function LearnPage() {
               학습 시작
             </Button>
           </div>
-          <Button variant="outline" size="sm" style={{ width: '100%', marginTop: 10 }} onClick={() => navigate('/learn/concepts')}>
+          <Button
+            variant="outline"
+            size="sm"
+            data-tour="learn-concepts-link"
+            style={{ width: '100%', marginTop: 10 }}
+            onClick={() => navigate('/learn/concepts')}
+          >
             <i className="bi bi-journal-text" />
             개념정리 보기
           </Button>
@@ -116,15 +156,20 @@ export default function LearnPage() {
             <i className="bi bi-heart" />
             찜한 문제 보기
           </Button>
+          <Button variant="outline" size="sm" style={{ width: '100%', marginTop: 8 }} onClick={() => navigate('/learn/history')}>
+            <i className="bi bi-clock-history" />
+            학습 기록 보기
+          </Button>
         </Card>
       </div>
 
       <div className="section-title" style={{ marginBottom: 14 }}>학습 코스 선택</div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 18 }}>
+      <div data-tour="learn-levels" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 18 }}>
         {LEVELS.map((lv) => (
           <div
             key={lv.id}
             className={`level-card ${lv.className}`}
+            data-tour={lv.id === 'custom' ? 'learn-personalized' : lv.id === 'beginner' ? 'learn-content' : undefined}
             onClick={() => !lv.locked && navigate(`/learn/${lv.id}`)}
             style={lv.locked ? { cursor: 'not-allowed' } : {}}
           >
@@ -150,7 +195,7 @@ export default function LearnPage() {
       <Card style={{ marginTop: 24 }}>
         <div className="row" style={{ marginBottom: 14 }}>
           <div className="section-title" style={{ marginBottom: 0 }}>최근 학습</div>
-          <span style={{ fontSize: 12, cursor: 'pointer', color: 'var(--primary)' }} onClick={() => navigate('/mypage')}>
+          <span style={{ fontSize: 12, cursor: 'pointer', color: 'var(--primary)' }} onClick={() => navigate('/learn/history')}>
             전체 기록 →
           </span>
         </div>
