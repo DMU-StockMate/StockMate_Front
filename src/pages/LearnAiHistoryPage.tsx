@@ -1,9 +1,11 @@
 import { useNavigate } from 'react-router-dom'
+import { useState } from 'react'
 import AppLayout from '../components/layout/AppLayout'
 import Card from '../components/common/Card'
 import Button from '../components/common/Button'
 import Pill from '../components/common/Pill'
 import MarkdownMessage from '../components/common/MarkdownMessage'
+import ConfirmModal from '../components/common/ConfirmModal'
 import {
   useLearnAiHistory,
   format_relative_time,
@@ -12,7 +14,8 @@ import {
 
 export default function LearnAiHistoryPage() {
   const navigate = useNavigate()
-  const { sessions, setActiveSessionId, activeSession, loading, error } = useLearnAiHistory()
+  const { sessions, setActiveSessionId, activeSession, loading, error, deleting, delete_session } = useLearnAiHistory()
+  const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
 
   return (
     <AppLayout topbarPlaceholder="학습 AI 질문 기록 검색">
@@ -46,6 +49,7 @@ export default function LearnAiHistoryPage() {
                 key={session.sessionId}
                 className={`learn-ai-history-item ${session.sessionId === activeSession?.sessionId ? 'active' : ''}`}
                 onClick={() => setActiveSessionId(session.sessionId)}
+                disabled={deleting}
               >
                 <span className="learn-ai-history-title">{get_session_title(session)}</span>
                 <span className="learn-ai-history-preview">{session.preview}</span>
@@ -66,6 +70,9 @@ export default function LearnAiHistoryPage() {
                   <h2>{get_session_title(activeSession)}</h2>
                   <p>{format_relative_time(activeSession.updatedAt || activeSession.createdAt)}</p>
                 </div>
+                <Button variant="outline" size="sm" disabled={deleting} onClick={() => setDeleteTarget(activeSession.sessionId)}>
+                  <i className="bi bi-trash" /> 기록 삭제
+                </Button>
                 {activeSession.questionId && (
                   <Button size="sm" onClick={() => navigate(`/learn/quiz/1/${activeSession.questionId}`)}>
                     <i className="bi bi-box-arrow-up-right" />
@@ -94,6 +101,21 @@ export default function LearnAiHistoryPage() {
           )}
         </Card>
       </section>
+      <ConfirmModal
+        open={deleteTarget !== null}
+        title="AI 질문 기록을 삭제할까요?"
+        message="이 대화의 모든 메시지가 삭제되며 복구할 수 없습니다."
+        confirmText={deleting ? '삭제 중...' : '삭제'}
+        confirmDisabled={deleting}
+        onCancel={() => { if (!deleting) setDeleteTarget(null) }}
+        onConfirm={() => {
+          if (deleteTarget !== null) void delete_session(deleteTarget).then((success) => {
+            if (success) setDeleteTarget(null)
+          })
+        }}
+      >
+        {error && <div role="alert">{error}</div>}
+      </ConfirmModal>
     </AppLayout>
   )
 }

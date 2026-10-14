@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { api_get_chat_sessions, type AiChatSessionRecord } from '../api/ai'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { api_delete_chat_session, api_get_chat_sessions, type AiChatSessionRecord } from '../api/ai'
 
 export const format_relative_time = (value: string): string => {
   const date = new Date(value)
@@ -23,6 +23,8 @@ export function useLearnAiHistory() {
   const [activeSessionId, setActiveSessionId] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const deleteLock = useRef(false)
 
   useEffect(() => {
     let alive = true
@@ -49,5 +51,24 @@ export function useLearnAiHistory() {
     [activeSessionId, sessions],
   )
 
-  return { sessions, activeSessionId, setActiveSessionId, activeSession, loading, error }
+  const delete_session = async (sessionId: number) => {
+    if (deleteLock.current) return false
+    deleteLock.current = true
+    setDeleting(true)
+    setError('')
+    try {
+      await api_delete_chat_session(sessionId)
+      setSessions((prev) => prev.filter((session) => session.sessionId !== sessionId))
+      setActiveSessionId((prev) => prev === sessionId ? null : prev)
+      return true
+    } catch {
+      setError('AI 질문 기록을 삭제하지 못했습니다. 잠시 후 다시 시도해주세요.')
+      return false
+    } finally {
+      deleteLock.current = false
+      setDeleting(false)
+    }
+  }
+
+  return { sessions, activeSessionId, setActiveSessionId, activeSession, loading, error, deleting, delete_session }
 }

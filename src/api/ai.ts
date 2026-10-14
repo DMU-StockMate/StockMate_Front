@@ -98,6 +98,9 @@ export const api_get_chat_sessions = (scope?: 'general' | 'question') =>
 export const api_get_chat_session_messages = (sessionId: number) =>
   api.get<AiChatMessageRecord[]>(`/ai/chat-sessions/${sessionId}/messages`)
 
+export const api_delete_chat_session = (sessionId: number) =>
+  api.delete(`/ai/chat-sessions/${sessionId}`)
+
 export async function api_stream_question_chat(
   questionId: number,
   message: string,

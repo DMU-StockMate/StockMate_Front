@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import AppLayout from '../components/layout/AppLayout'
+import Button from '../components/common/Button'
+import ConfirmModal from '../components/common/ConfirmModal'
 import { api_get_questions } from '../api/learning'
 import {
   api_get_chat_sessions,
+  api_delete_chat_session,
   api_stream_chat_session,
   api_stream_general_chat,
   api_stream_question_chat,
@@ -224,6 +227,10 @@ export default function AIPage() {
   const [inputText, setInputText] = useState('')
   const [seedQuestionId, setSeedQuestionId] = useState<number | null>(null)
   const [isSending, setIsSending] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
+  const deleteLockRef = useRef(false)
   const [statusText, setStatusText] = useState('AI 서버 연결 준비 중')
   const nextChatIdRef = useRef(2)
   const nextMessageIdRef = useRef(2)
@@ -284,6 +291,7 @@ export default function AIPage() {
   }, [])
 
   const start_new_chat = () => {
+    if (isDeleting) return
     const nextId = nextChatIdRef.current
     nextChatIdRef.current += 1
     const nextChat: ChatHistory = {
@@ -308,7 +316,7 @@ export default function AIPage() {
 
   const send_message = async (text: string) => {
     const value = text.trim()
-    if (!value || isSending) return
+    if (!value || isSending || deleteLockRef.current) return
 
     const targetChat = activeChat
     const targetChatId = targetChat.id
@@ -382,11 +390,37 @@ export default function AIPage() {
     }
   }
 
+  const delete_active_chat = async () => {
+    if (isSending || deleteLockRef.current) return
+    deleteLockRef.current = true
+    setIsDeleting(true)
+    setDeleteError('')
+    try {
+      if (activeChat.sessionId !== null) await api_delete_chat_session(activeChat.sessionId)
+      const remaining = histories.filter((chat) => chat.id !== activeChat.id)
+      if (remaining.length) {
+        setHistories(remaining)
+        setActiveChatId(remaining[0].id)
+      } else {
+        const id = nextChatIdRef.current++
+        setHistories([{ ...INITIAL_HISTORY[0], id }])
+        setActiveChatId(id)
+      }
+      setInputText('')
+      setDeleteOpen(false)
+    } catch {
+      setDeleteError('대화를 삭제하지 못했습니다. 잠시 후 다시 시도해주세요.')
+    } finally {
+      deleteLockRef.current = false
+      setIsDeleting(false)
+    }
+  }
+
   return (
     <AppLayout topbarPlaceholder="AI 분석 대화 검색">
       <section className="ai-chat-shell">
         <aside className="ai-history-nav" aria-label="AI 채팅 기록">
-          <button className="ai-new-chat" onClick={start_new_chat}>
+          <button className="ai-new-chat" onClick={start_new_chat} disabled={isDeleting}>
             <i className="bi bi-plus-lg" />
             새 대화
           </button>
@@ -398,6 +432,7 @@ export default function AIPage() {
                 key={chat.id}
                 className={`ai-history-item ${chat.id === activeChatId ? 'active' : ''}`}
                 onClick={() => setActiveChatId(chat.id)}
+                disabled={isDeleting}
               >
                 <span className="ai-history-title">{chat.title}</span>
                 <span className="ai-history-preview">{chat.preview}</span>
@@ -417,6 +452,9 @@ export default function AIPage() {
               <i className="bi bi-stars" />
               {isSending ? '응답 생성 중' : statusText}
             </span>
+            <Button variant="outline" size="sm" disabled={isSending || isDeleting} onClick={() => { setDeleteError(''); setDeleteOpen(true) }}>
+              <i className="bi bi-trash" /> 대화 삭제
+            </Button>
           </header>
 
           <div className="ai-message-list" ref={messageListRef}>
@@ -433,7 +471,7 @@ export default function AIPage() {
 
           <div className="ai-suggestion-row">
             {PROMPT_SUGGESTIONS.map((prompt) => (
-              <button key={prompt} onClick={() => void send_message(prompt)} disabled={isSending}>
+              <button key={prompt} onClick={() => void send_message(prompt)} disabled={isSending || isDeleting}>
                 {prompt}
               </button>
             ))}
@@ -447,12 +485,23 @@ export default function AIPage() {
               placeholder="궁금한 종목이나 투자 아이디어를 입력하세요"
               rows={1}
             />
-            <button onClick={() => void send_message(inputText)} aria-label="메시지 보내기" disabled={isSending}>
+            <button onClick={() => void send_message(inputText)} aria-label="메시지 보내기" disabled={isSending || isDeleting}>
               <i className="bi bi-send-fill" />
             </button>
           </footer>
         </main>
       </section>
+      <ConfirmModal
+        open={deleteOpen}
+        title="대화를 삭제할까요?"
+        message={`「${activeChat.title}」의 모든 메시지가 삭제되며 복구할 수 없습니다.`}
+        confirmText={isDeleting ? '삭제 중...' : '삭제'}
+        confirmDisabled={isDeleting || isSending}
+        onConfirm={() => void delete_active_chat()}
+        onCancel={() => { if (!deleteLockRef.current) setDeleteOpen(false) }}
+      >
+        {deleteError && <div role="alert">{deleteError}</div>}
+      </ConfirmModal>
     </AppLayout>
   )
 }
