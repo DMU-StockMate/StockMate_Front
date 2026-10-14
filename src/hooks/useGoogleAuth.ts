@@ -44,13 +44,16 @@ export function useGoogleAuth(onError: (message: string) => void) {
       try {
         const { data } = await api_google_login({ idToken: response.credential })
         await finish_login(data.accessToken)
-      } catch (err: any) {
-        const msg = err?.response?.data?.message ?? '구글 로그인에 실패했습니다.'
+      } catch (err: unknown) {
+        const apiError = err as { response?: { data?: { message?: string | string[] } } }
+        const msg = apiError.response?.data?.message ?? '구글 로그인에 실패했습니다.'
         onErrorRef.current(Array.isArray(msg) ? msg[0] : msg)
       } finally {
         setGoogleLoading(false)
       }
-    }).catch(() => onErrorRef.current('구글 로그인 스크립트를 불러오지 못했습니다.'))
+    }).catch((error: unknown) => onErrorRef.current(
+      error instanceof Error ? error.message : '구글 로그인 서비스를 불러오지 못했습니다.',
+    ))
   }, [from, login, navigate])
 
   return { googleButtonRef, googleLoading }
