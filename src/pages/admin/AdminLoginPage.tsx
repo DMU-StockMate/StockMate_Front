@@ -69,11 +69,7 @@ export default function AdminLoginPage() {
         boxShadow: 'var(--shadow)', padding: '40px 36px',
       }}>
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <div style={{
-            width: 56, height: 56, borderRadius: 16, background: 'var(--gradient)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#fff', fontWeight: 800, fontSize: 28, margin: '0 auto 16px',
-          }}>S</div>
+          <img src="/stockmate-logo.svg" alt="StockMate" width={56} height={56} style={{ display: 'block', objectFit: 'contain', margin: '0 auto 16px' }} />
           <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 4 }}>관리자 로그인</h1>
           <p style={{ fontSize: 13, color: 'var(--t2)' }}>StockMate 관리자 콘솔</p>
         </div>

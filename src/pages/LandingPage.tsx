@@ -78,14 +78,7 @@ export default function LandingPage() {
         >
           {/* 로고 */}
           <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
-            <div
-              style={{
-                width: 32, height: 32, borderRadius: 9,
-                background: 'var(--gradient)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: '#fff', fontWeight: 800, fontSize: 15,
-              }}
-            >S</div>
+            <img src="/stockmate-logo.svg" alt="" aria-hidden="true" width={32} height={32} style={{ objectFit: 'contain', flexShrink: 0 }} />
             <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--t1)', letterSpacing: '-0.3px' }}>
               StockMate
             </span>
@@ -396,14 +389,7 @@ export default function LandingPage() {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div
-              style={{
-                width: 28, height: 28, borderRadius: 8,
-                background: 'var(--gradient)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: '#fff', fontWeight: 800, fontSize: 13,
-              }}
-            >S</div>
+            <img src="/stockmate-logo.svg" alt="" aria-hidden="true" width={28} height={28} style={{ objectFit: 'contain', flexShrink: 0 }} />
             <span style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>StockMate</span>
           </div>
 
