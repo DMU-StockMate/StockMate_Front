@@ -30,7 +30,7 @@ export default function QuizPage() {
     send_ai_message, handle_ai_key_down,
   } = useQuiz()
 
-  if (!quiz) {
+  if (loading || !quiz) {
     return (
       <AppLayout topbarPlaceholder="학습 검색">
         <div className="breadcrumb">
@@ -149,6 +149,7 @@ export default function QuizPage() {
             <ChipRow style={{ marginBottom: 20 }}>
               <Chip active>{quiz.tag}</Chip>
               <Chip>{format_type(quiz.type)}</Chip>
+              <Chip>{submitted ? (isCorrect ? '풀이 완료 · 정답' : '풀이 완료 · 오답') : retrying ? '다시 풀기' : '미풀이'}</Chip>
               <Chip>난이도 · {quiz.difficulty}</Chip>
               <span
                 className="chip"
@@ -202,7 +203,7 @@ export default function QuizPage() {
                     <i className="bi bi-stars" />
                     AI 설명
                   </Button>
-                  <Button size="lg" style={{ minWidth: 200 }} onClick={() => void handle_submit()} disabled={selected === null || submitting || !quiz.canSubmit}>
+                  <Button size="lg" style={{ minWidth: 200 }} onClick={() => void handle_submit()} disabled={selected === null || submitting || (!quiz.canSubmit && !retrying)}>
                     {submitting ? '제출 중...' : '제출하기'}
                   </Button>
                 </div>

@@ -4,10 +4,12 @@ import {
   api_add_bookmark,
   api_delete_bookmark,
   api_get_bookmarks,
+  api_get_histories,
   api_get_question,
   api_get_questions,
   api_submit_answer,
   type QuizChoice,
+  type QuizAttempt,
 } from '../api/learning'
 import { api_stream_chat_session, api_stream_question_chat } from '../api/ai'
 import { as_record, get_array } from '../utils/normalize'
@@ -48,7 +50,7 @@ const get_question_id = (raw: unknown) => {
 const get_choice_id = (choice: QuizChoice, index: number) =>
   Number(choice.choice_id ?? choice.choiceId ?? choice.id ?? index + 1)
 
-const normalize_question = (raw: unknown): QuizItem | null => {
+const normalize_question = (raw: unknown, histories: QuizAttempt[] = []): QuizItem | null => {
   const question = as_record(raw)
   const choices = Array.isArray(question.choices) ? question.choices as QuizChoice[] : []
   const id = get_question_id(question)
@@ -58,6 +60,24 @@ const normalize_question = (raw: unknown): QuizItem | null => {
   const typeText = String(question.question_type ?? question.questionType ?? '')
   const levelId = Number(question.investment_level_id ?? question.investmentLevelId ?? 1)
   const correctIndex = choices.findIndex((c) => c.is_correct === true || c.isCorrect === true)
+  const attempts = histories.filter((attempt) =>
+    Number(attempt.question_id ?? attempt.questionId ?? get_question_id(attempt.question)) === id,
+  ).sort((a, b) => {
+    const timeDiff = (Date.parse(b.solved_at ?? b.solvedAt ?? '') || 0)
+      - (Date.parse(a.solved_at ?? a.solvedAt ?? '') || 0)
+    return timeDiff || Number(b.attempt_id ?? b.attemptId ?? 0) - Number(a.attempt_id ?? a.attemptId ?? 0)
+  })
+  const latest = attempts[0]
+  const lastCorrect = latest?.is_correct ?? latest?.isCorrect ?? question.lastCorrect
+  const status = question.attemptStatus ?? question.attempt_status
+  const attemptStatus: QuizItem['attemptStatus'] = typeof lastCorrect === 'boolean'
+    ? (lastCorrect ? 'CORRECT' : 'INCORRECT')
+    : status === 'CORRECT' || status === 'INCORRECT' ? status : 'UNANSWERED'
+  const selectedChoiceId = latest?.selected_choice_id ?? latest?.selectedChoiceId
+    ?? question.selectedChoiceId ?? question.selected_choice_id
+  const rewardCashEarned = attempts.length
+    ? attempts.reduce((sum, attempt) => sum + Number(attempt.reward_cash_earned ?? attempt.rewardCashEarned ?? 0), 0)
+    : Number(question.rewardCashEarned ?? question.reward_cash_earned ?? 0)
 
   return {
     id,
@@ -70,12 +90,12 @@ const normalize_question = (raw: unknown): QuizItem | null => {
     difficulty: levelId > 2 ? '어려움' : levelId > 1 ? '보통' : '쉬움',
     reward: Number(question.reward_cash ?? question.rewardCash ?? 0),
     explanation: typeof question.explanation === 'string' ? question.explanation : null,
-    attemptStatus: String(question.attemptStatus ?? 'UNANSWERED') as QuizItem['attemptStatus'],
-    selectedChoiceId: question.selectedChoiceId == null ? null : Number(question.selectedChoiceId),
-    rewardCashEarned: Number(question.rewardCashEarned ?? 0),
-    isRewarded: question.isRewarded === true,
+    attemptStatus,
+    selectedChoiceId: selectedChoiceId == null ? null : Number(selectedChoiceId),
+    rewardCashEarned,
+    isRewarded: question.isRewarded === true || rewardCashEarned > 0,
     canSubmit: question.canSubmit !== false,
-    canRetry: question.canRetry === true,
+    canRetry: attemptStatus !== 'UNANSWERED',
   }
 }
 
@@ -135,10 +155,15 @@ export function useQuiz() {
     const load_question = async () => {
       setLoading(true)
       setError('')
+      setQuiz(null)
       try {
-        const { data } = await api_get_questions({ categoryId: Number(topicId) })
+        const [{ data }, { data: historyData }] = await Promise.all([
+          api_get_questions({ categoryId: Number(topicId) }),
+          api_get_histories(),
+        ])
+        const histories = get_array(historyData) as QuizAttempt[]
         const loaded = get_array(data)
-          .map(normalize_question)
+          .map((item) => normalize_question(item, histories))
           .filter((item): item is QuizItem => item !== null)
           .sort((a, b) => a.id - b.id)
 
@@ -146,7 +171,10 @@ export function useQuiz() {
 
         if (requestedQuestionId > 0) {
           const detail = await api_get_question(requestedQuestionId)
-          nextQuiz = normalize_question(detail.data) ?? nextQuiz
+          nextQuiz = normalize_question({
+            ...as_record(get_array(data).find((item) => get_question_id(item) === requestedQuestionId)),
+            ...detail.data,
+          }, histories) ?? nextQuiz
         }
 
         if (!alive) return
@@ -233,7 +261,7 @@ export function useQuiz() {
   }, [quiz, bookmarked, bookmarkSaving])
 
   const handle_submit = useCallback(async () => {
-    if (!quiz || selected === null || !quiz.canSubmit) return
+    if (!quiz || selected === null || submitted || submitting || (!quiz.canSubmit && !retrying)) return
     const selectedChoiceId = quiz.choiceIds[selected]
     if (!selectedChoiceId) return
     setSubmitting(true)
@@ -241,15 +269,19 @@ export function useQuiz() {
     try {
       const { data } = await api_submit_answer(quiz.id, selectedChoiceId)
       setSubmitResult({ correct: data.correct, reward: data.reward, explanation: data.explanation })
-      setQuiz((prev) => prev ? {
-        ...prev,
+      const updatedQuiz: QuizItem = {
+        ...quiz,
         attemptStatus: data.correct ? 'CORRECT' : 'INCORRECT',
         selectedChoiceId,
-        rewardCashEarned: prev.rewardCashEarned + data.reward,
-        isRewarded: prev.isRewarded || data.reward > 0,
-        canSubmit: !data.correct,
-        canRetry: !data.correct,
-      } : prev)
+        rewardCashEarned: quiz.rewardCashEarned + data.reward,
+        isRewarded: quiz.isRewarded || data.reward > 0,
+        explanation: data.explanation ?? quiz.explanation,
+        correctIndex: data.correct ? selected : quiz.correctIndex,
+        canSubmit: data.canSubmit ?? true,
+        canRetry: true,
+      }
+      setQuiz(updatedQuiz)
+      setQuestions((prev) => prev.map((item) => item.id === quiz.id ? updatedQuiz : item))
       setSubmitted(true)
       setSubmittedNow(true)
       setRetrying(false)
@@ -258,7 +290,7 @@ export function useQuiz() {
     } finally {
       setSubmitting(false)
     }
-  }, [quiz, selected])
+  }, [quiz, selected, submitted, submitting, retrying])
 
   const handle_retry = useCallback(() => {
     if (!quiz?.canRetry) return

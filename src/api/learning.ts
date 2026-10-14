@@ -13,6 +13,9 @@ export interface QuizChoice {
 }
 
 export interface QuizQuestion {
+  sourceType?: 'DEFAULT' | 'WRONG_ANSWER' | 'PERSONAL_PROMPT' | 'ADMIN'
+  visibility?: 'PUBLIC' | 'PRIVATE'
+
   question_id?: number
   questionId?: number
   topic_id?: number

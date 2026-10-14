@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   api_generate_from_prompt,
@@ -6,7 +6,7 @@ import {
   type AiGenerationSource,
   type GeneratedQuestionItem,
 } from '../api/ai'
-import { api_get_wrong_notes, type QuizAttempt } from '../api/learning'
+import { api_get_questions, api_get_wrong_notes, type QuizAttempt } from '../api/learning'
 import { get_community_error_message } from '../utils/community'
 
 export type GenerationMode = AiGenerationSource
@@ -34,6 +34,54 @@ export function useLearnCustom() {
   const [generateError, setGenerateError] = useState('')
   const [questions, setQuestions] = useState<GeneratedQuestionResult[]>([])
   const [tab, setTab] = useState<GeneratedTab>('ALL')
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadQuestions = async () => {
+      try {
+        const { data } = await api_get_questions()
+        const saved: GeneratedQuestionResult[] = data
+          .filter((question) => question.visibility === 'PRIVATE'
+            && (question.sourceType === 'WRONG_ANSWER' || question.sourceType === 'PERSONAL_PROMPT'))
+          .map((question) => ({
+            questionId: Number(question.question_id ?? question.questionId),
+            questionText: question.question_text ?? question.questionText ?? '',
+            questionType: (question.question_type ?? question.questionType) === 'OX' ? 'OX' : 'MULTIPLE_CHOICE',
+            explanation: question.explanation ?? '',
+            rewardCash: Number(question.reward_cash ?? question.rewardCash ?? 0),
+            topic: '',
+            level: '',
+            category: question.category ? {
+              categoryId: Number(question.category.categoryId ?? question.category.category_id),
+              categoryName: question.category.categoryName ?? question.category.category_name ?? '',
+            } : null,
+            details: [],
+            choices: question.choices.map((choice) => ({
+              choiceId: Number(choice.choice_id ?? choice.choiceId ?? choice.id),
+              choiceNo: Number(choice.choice_no ?? choice.choiceNo),
+              text: choice.choice_text ?? choice.text ?? '',
+              isCorrect: choice.is_correct ?? choice.isCorrect ?? false,
+            })),
+            sourceType: question.sourceType === 'WRONG_ANSWER' ? 'WRONG_NOTE' : 'PROMPT',
+          }))
+        if (!cancelled) {
+          // Preserve questions generated while this request was in flight.
+          setQuestions((current) => {
+            const currentIds = new Set(current.map((question) => question.questionId))
+            return [...current, ...saved.filter((question) => !currentIds.has(question.questionId))]
+          })
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setGenerateError(get_community_error_message(err, '생성된 문제를 불러오지 못했습니다. 다시 시도해주세요.'))
+        }
+      }
+    }
+
+    void loadQuestions()
+    return () => { cancelled = true }
+  }, [])
 
   const handle_generate = useCallback(async () => {
     if (mode === 'PROMPT' && !prompt.trim()) {
@@ -64,7 +112,10 @@ export function useLearnCustom() {
       }
 
       const tagged = batch.map((question) => ({ ...question, sourceType: mode }))
-      setQuestions((prev) => [...tagged, ...prev])
+      setQuestions((prev) => {
+        const generatedIds = new Set(tagged.map((question) => question.questionId))
+        return [...tagged, ...prev.filter((question) => !generatedIds.has(question.questionId))]
+      })
       if (mode === 'PROMPT') setPrompt('')
     } catch (err) {
       setGenerateError(
