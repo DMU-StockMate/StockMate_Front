@@ -105,7 +105,7 @@ export default function Sidebar() {
         style={{ cursor: 'pointer' }}
         title="홈으로 이동"
       >
-        <div className="logo-mark">S</div>
+        <img className="logo-mark" src="/stockmate-logo.svg" alt="" aria-hidden="true" />
         <div className="logo-name">StockMate</div>
       </div>
 

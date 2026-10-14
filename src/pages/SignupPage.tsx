@@ -34,13 +34,7 @@ export default function SignupPage() {
     <div className="auth-page">
       <div className="auth-card" style={{ maxWidth: 480 }}>
         <div className="auth-logo">
-          <div
-            style={{
-              width: 40, height: 40, borderRadius: 12, background: 'var(--gradient)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: '#fff', fontWeight: 800, fontSize: 20,
-            }}
-          >S</div>
+          <img src="/stockmate-logo.svg" alt="" aria-hidden="true" width={40} height={40} style={{ objectFit: 'contain', flexShrink: 0 }} />
           <span style={{ fontSize: 22, fontWeight: 800, letterSpacing: '-0.3px', color: 'var(--t1)' }}>
             StockMate
           </span>

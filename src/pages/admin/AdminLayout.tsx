@@ -40,11 +40,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
           }}
           title="홈으로 이동"
         >
-          <div style={{
-            width: 32, height: 32, borderRadius: 9, background: 'var(--gradient)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#fff', fontWeight: 800, fontSize: 16,
-          }}>S</div>
+          <img src="/stockmate-logo.svg" alt="" aria-hidden="true" width={32} height={32} style={{ objectFit: 'contain', flexShrink: 0 }} />
           <div>
             <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--t1)' }}>StockMate</div>
             <div style={{ fontSize: 11, color: 'var(--primary)', fontWeight: 600 }}>관리자 콘솔</div>
