@@ -1,4 +1,4 @@
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim()
 
 type GoogleCredentialResponse = { credential?: string }
 type GoogleCallback = (response: GoogleCredentialResponse) => void
@@ -48,10 +48,10 @@ export const render_google_button = async (
   element: HTMLElement,
   callback: GoogleCallback,
 ) => {
-  if (!GOOGLE_CLIENT_ID) return
+  if (!GOOGLE_CLIENT_ID) throw new Error('Google Client ID is missing from the frontend build')
   await load_google_identity()
   const googleId = window.google?.accounts?.id
-  if (!googleId) return
+  if (!googleId) throw new Error('Google Identity Services is unavailable')
 
   activeCallback = callback
   if (!initialized) {
@@ -66,7 +66,7 @@ export const render_google_button = async (
     googleId.renderButton(element, {
       theme: 'outline',
       size: 'large',
-      width: element.offsetWidth,
+      width: Math.min(400, Math.max(200, element.offsetWidth || 320)),
       text: 'continue_with',
     })
   }

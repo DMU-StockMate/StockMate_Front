@@ -26,9 +26,15 @@ jobs:
         run: npm ci
 
       - name: Build frontend
-        run: npm run build
+        run: |
+          if [ -z "$VITE_GOOGLE_CLIENT_ID" ]; then
+            echo "::error::Set the VITE_GOOGLE_CLIENT_ID repository variable or secret before deploying."
+            exit 1
+          fi
+          npm run build
         env:
           VITE_API_URL: /api
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID || secrets.VITE_GOOGLE_CLIENT_ID }}
 
       - name: Deploy frontend
         run: |

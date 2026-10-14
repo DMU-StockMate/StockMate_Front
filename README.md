@@ -84,6 +84,18 @@ npm run build
 
 SPA 라우팅을 사용하므로 배포 환경에서 모든 경로를 `index.html`로 fallback 처리해야 합니다.
 
+### Google 로그인 배포 설정
+
+GitHub 저장소의 Settings → Secrets and variables → Actions에서 `VITE_GOOGLE_CLIENT_ID`를
+Repository variable 또는 Secret으로 등록합니다. 로컬 `.env`와 같은 Google OAuth 웹 클라이언트 ID를 사용합니다.
+배포 워크플로는 이 값을 빌드에 전달하며, 누락되면 배포를 중단합니다.
+
+Vite 환경변수는 `npm run build` 시 정적 파일에 포함됩니다. 이미 빌드된 파일을 제공하는
+Docker 컨테이너에 환경변수만 추가해도 변경되지 않으므로, 빌드 단계에 값을 전달한 뒤
+다시 빌드하고 배포해야 합니다. 이 저장소의 워크플로는 `dist/`를 `/var/www/stockmate-frontend/`로 복사합니다.
+
+Google OAuth 클라이언트의 승인된 JavaScript 원본에도 실제 배포 사이트의 원본을 등록해야 합니다.
+
 ## 배포 전 체크리스트
 
 - `VITE_API_BASE_URL`이 운영 백엔드 주소를 바라보는지 확인
